@@ -1,0 +1,42 @@
+Ciphertext lengths: [65, 69, 69, 70]
+Pairs whose first 4 ciphertext bytes are identical: [(1, 3)] -> their first 4 plaintext bytes are identical too (C_i xor C_j = 0)
+
+--- Round 0: crib 'the ' at offset 0 of msg1/msg3  (known pad bytes: 4/70) ---
+  msg0         : meet_____________________________________________________________
+  msg1         : the _________________________________________________________________
+  msg2         : reme_________________________________________________________________
+  msg3 (TARGET): the __________________________________________________________________
+
+--- Round 0b: noisy frequency-vote decryption (hints only) ---
+  msg0: mhet ae at tte ntrth gate ac nloe tddighp red ornng tle dooumeths
+  msg1: tee qyarterle remenue numbees htst eet laaen teit rooi undir ate iase
+  msg2: rhmemner to notaoe the encrnptlnn knss erear ndnbty deys wethooh lail
+  msg3: tee lmunch aithoiization cose rhll io dehienrei ey setarati coonior o 
+
+--- Round 1: extend msg0 / msg2 starts  (known pad bytes: 27/70) ---
+  msg0         : meet me at the north gate a______________________________________
+  msg1         : the quarterly revenue numbe__________________________________________
+  msg2         : remember to rotate the encr__________________________________________
+  msg3 (TARGET): the launch authorization co___________________________________________
+
+--- Round 2: extend msg1 (and the pad with it)  (known pad bytes: 69/70) ---
+  msg0         : meet me at the north gate at nine tonight and bring the documents
+  msg1         : the quarterly revenue numbers must not leave this room under any case
+  msg2         : remember to rotate the encryption keys every ninety days without fail
+  msg3 (TARGET): the launch authorization code will be delivered by separate courier o_
+
+--- Round 3: finish msg0 / msg2  (known pad bytes: 69/70) ---
+  msg0         : meet me at the north gate at nine tonight and bring the documents
+  msg1         : the quarterly revenue numbers must not leave this room under any case
+  msg2         : remember to rotate the encryption keys every ninety days without fail
+  msg3 (TARGET): the launch authorization code will be delivered by separate courier o_
+
+=== CONFIRMATION ===
+TARGET decrypted ONLY with pad bytes recovered from msg0, msg1, msg2:
+   'the launch authorization code will be delivered by separate courier o_'
+   undetermined positions (only the target covers them): [69]
+Pad bytes confirmed by >= 2 independent messages: 69/69
+No crib conflicts were raised (otherwise this script would have crashed).
+
+RECOVERED TARGET PLAINTEXT: 'the launch authorization code will be delivered by separate courier ok'
+(character 69 = 'k' is an inference from context, not cross-checked)

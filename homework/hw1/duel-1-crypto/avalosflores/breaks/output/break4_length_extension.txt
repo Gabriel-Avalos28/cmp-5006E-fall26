@@ -1,0 +1,16 @@
+Issued token : {'data': 'user=alice&role=user', 'tag': 1116660411}
+Naive append (old tag + '&role=admin') validates? -> False
+
+Secret lengths tried: 1..32   ->  accepted by the server for: [1, 5, 9, 13, 17, 21, 25, 29]
+  Distinct forged (data, tag) pairs among the accepted guesses: 1
+  -> all accepted lengths are congruent mod 4: this toy hash's zero-padding depends only on
+     (len(secret)+len(data)) mod 4, so every such guess yields the SAME forgery. We only need
+     len(secret) mod 4 (=1 here; the docstring says 9). Real SHA-256 encodes the exact bit
+     length in its padding, so there we'd need the exact length (<= ~64 guesses, same oracle).
+
+=== FORGED TOKEN (secret never used) ===
+  data : b'user=alice&role=user\x00\x00\x00&role=admin'
+  tag  : 4024164909
+  verify_token(data, tag) -> True
+  The forged data still starts with 'user=alice&role=user' and ends with '&role=admin';
+  a parser that keeps the LAST role= value (typical for query strings) sees role=admin.
