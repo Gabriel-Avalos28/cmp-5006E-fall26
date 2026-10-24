@@ -1,0 +1,22 @@
+4 public keys, e = 65537, modulus sizes (bits): [128, 128, 127, 127]
+  device0: batch-gcd = 14723961130838400979  ->  SHARES A PRIME
+  device1: batch-gcd = 1  ->  no shared prime
+  device2: batch-gcd = 14723961130838400979  ->  SHARES A PRIME
+  device3: batch-gcd = 1  ->  no shared prime
+
+Pairwise gcd cross-check:
+  gcd(n_0, n_2) = 14723961130838400979   (shared prime, 64 bits)
+
+Recovered private keys:
+  device0:  p = 14723961130838400979
+           q = 11772898612920125053
+           d = 155006092543738932355592225651672081825
+           decrypt(encrypt(m)) == m: True   |  forged signature verifies: True
+  device2:  p = 14723961130838400979
+           q = 10161808392784034897
+           d = 101591964428919489627153881052022337249
+           decrypt(encrypt(m)) == m: True   |  forged signature verifies: True
+
+Compromised devices: ['device0', 'device2']   Not compromised by this attack: ['device1', 'device3']
+(Those two have unique primes: batch-gcd gives 1. The 128-bit toy moduli could still be
+ factored directly, but that is a separate, unrelated weakness of the toy key size.)

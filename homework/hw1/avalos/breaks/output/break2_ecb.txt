@@ -1,0 +1,33 @@
+Ciphertext blocks per record (format is 'name:role:dept', 4-byte blocks):
+
+  rec0: 93725924 | d8f6f831 | 3eb9e189 | 7cf7fff3
+  rec1: 03c112f1 | 9225bc52 | e400a7cb | e86a9de7
+  rec2: 126e0496 | d8f6f831 | 3eb9e189 | 7cf7fff3
+  rec3: 1f9e653e | 9225bc52 | 3ad281d2 | ffd264fc
+
+Which blocks are identical between two records?  (blocks are numbered 0..3)
+  rec0 vs rec1: equal blocks []
+  rec0 vs rec2: equal blocks [1, 2, 3]
+  rec0 vs rec3: equal blocks []
+  rec1 vs rec2: equal blocks []
+  rec1 vs rec3: equal blocks [1]
+  rec2 vs rec3: equal blocks []
+
+INFERENCES (no key used):
+  * Block 0 (the name) differs everywhere -> four distinct employees.
+  * rec0 and rec2 share blocks 1,2,3 -> SAME role AND SAME department.
+  * rec1 and rec3 share only block 1  -> SAME role, DIFFERENT department.
+  * rec0/rec2 vs rec1/rec3 share no role block -> the two groups have DIFFERENT roles.
+
+INFERRING A FIELD with one anchor:
+  Suppose the attacker knows ONE record's role from outside the system, e.g. the
+  company page says 'alice' is an administrator (rec0 -> 'admn').
+  Then rec2 has the identical role block, so rec2 is ALSO 'admn'  (identity: block 1 equal),
+  and the other group (rec1, rec3) is NOT admin.
+  => Role of rec2 recovered: 'admn'.  Role of rec1 and rec3: the other group.
+
+Repeated ciphertext blocks across the table: 4 distinct values, 8 of 16 blocks involved.
+  d8f6f831 x2: [('rec0', 1), ('rec2', 1)]
+  3eb9e189 x2: [('rec0', 2), ('rec2', 2)]
+  7cf7fff3 x2: [('rec0', 3), ('rec2', 3)]
+  9225bc52 x2: [('rec1', 1), ('rec3', 1)]

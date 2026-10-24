@@ -1,0 +1,20 @@
+[1] The side channel: median time (microseconds, 301 calls each) vs. number of correct leading bytes
+      0 correct leading bytes ->      0.4 us
+      1 correct leading bytes ->     72.2 us
+      2 correct leading bytes ->    144.3 us
+      3 correct leading bytes ->    215.8 us
+      (each extra correct byte adds ~4000 loop iterations; a real memcmp adds ~1 ns, see honesty.md)
+
+[2] Reliability: full 4-byte recovery repeated 20x for each N (rounds per candidate)
+      N   timed calls/attack |  median score  |  minimum score
+      1           1024      |   0/20 (  0.0 %) |   0/20 (  0.0 %)
+      2           2048      |   1/20 (  5.0 %) |   7/20 ( 35.0 %)
+      3           3072      |   5/20 ( 25.0 %) |  14/20 ( 70.0 %)
+      5           5120      |  12/20 ( 60.0 %) |  19/20 ( 95.0 %)
+      8           8192      |  18/20 ( 90.0 %) |  20/20 (100.0 %)
+
+[3] Final recovery with the minimum score and N = 16 rounds/candidate (2 x the smallest N with 20/20 successes)
+      recovered secret : 83fabf35  ([131, 250, 191, 53])
+      oracle check     : timing_compare(secret) -> True
+      timed calls used : 16384  (= 4 positions x 256 candidates x 16 rounds), 1.9 s
+      brute force would need up to 2^32 = 4,294,967,296 calls; this needed 16,384.
