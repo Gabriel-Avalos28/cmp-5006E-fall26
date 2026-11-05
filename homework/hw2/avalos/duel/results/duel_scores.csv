@@ -1,0 +1,4 @@
+tool,tp,fp,fn,precision,recall,f1,false_positives,missed
+regex-scanner,2,0,1,1.00,0.67,0.80,-,sqli:do_login
+llm-run1,3,2,0,0.60,1.00,0.75,broken-access-control:do_login;xss:do_reflect_safe,-
+llm-run2,3,1,0,0.75,1.00,0.86,broken-access-control:do_ping,-

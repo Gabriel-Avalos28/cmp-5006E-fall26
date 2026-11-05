@@ -1,0 +1,5 @@
+payload,waf_rule_fired,blocked
+admin' OR 1=1--,SQLi numeric tautology,True
+admin' OR 'a'='a'--,SQLi string tautology,True
+"x' UNION SELECT user, secret FROM users--",SQLi UNION SELECT,True
+'; DROP TABLE users--,SQLi DROP TABLE,True

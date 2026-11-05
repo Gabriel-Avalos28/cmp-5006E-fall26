@@ -1,0 +1,7 @@
+payload,leaks_on_vulnerable_sink,leaks_on_parameterized
+admin' OR 1=1--,True,False
+admin' OR 'a'='a'--,True,False
+admin' OR 'a' LIKE 'a ,True,False
+admin' OR 'x'<>'y,True,False
+admin'/**/OR/**/'a'='a,True,False
+admin'/**/oR/**/'1'='1,True,False

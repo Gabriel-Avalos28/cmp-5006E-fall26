@@ -1,0 +1,8 @@
+class,naive_payload,naive_blocked_by,bypass_payload,bypass_passes_medium,oracle_confirmed,successes/trials,owasp_2021,oracle_evidence
+sqli,admin' OR 1=1--,sqli-medium: numeric tautology OR d=d,admin' OR 'a'='a'--,True,True,3/3,A03:2021 Injection,marker 'FLAG-sqli-9f2c-admin-session' present
+sqli-benign-control,alice,-,-,-,False,0/3,A03:2021 Injection,no canary (correct)
+xss,<script>alert('XSS-7f3a')</script>,xss-medium: <script> blocked,<img src=x onerror=alert('XSS-7f3a')>,True,True,3/3,A03:2021 Injection,"live unescaped markup carrying ""onerror=alert('XSS-7f3a')"""
+xss-benign-control,Keoma O'Brien,-,-,-,False,0/3,A03:2021 Injection,no live marker (correct)
+xss-true-negative(/safe),<img src=x onerror=alert('XSS-7f3a')>,-,<img src=x onerror=alert('XSS-7f3a')>,True,False,0/3,A03:2021 Injection,escaped by html.escape (correct)
+cmdi,127.0.0.1; whoami,cmdi-medium: ';' blocked,127.0.0.1 | whoami,True,True,3/3,A03:2021 Injection,shell metacharacter reached command context
+cmdi-benign-control,api.internal.example,-,-,-,False,0/3,A03:2021 Injection,no metachar (correct)

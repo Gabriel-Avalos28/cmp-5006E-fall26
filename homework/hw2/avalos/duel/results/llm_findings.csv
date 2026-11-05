@@ -1,0 +1,10 @@
+run,rule,location,confidence,verdict
+run1,sqli,do_login,high,TP (real)
+run1,xss,do_reflect,high,TP (real)
+run1,cmdi,do_ping,high,TP (real)
+run1,broken-access-control,do_login,high,FP (hallucination/wrong)
+run1,xss,do_reflect_safe,medium,FP (hallucination/wrong)
+run2,sqli,do_login,high,TP (real)
+run2,xss,do_reflect,high,TP (real)
+run2,cmdi,do_ping,high,TP (real)
+run2,broken-access-control,do_ping,medium,FP (hallucination/wrong)

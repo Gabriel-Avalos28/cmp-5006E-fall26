@@ -1,0 +1,10 @@
+Here are the security issues I identified in vulnweb_app.py:
+
+1. [HIGH] SQL Injection in do_login: user-controlled input is formatted directly
+   into the SQL string, allowing auth bypass.
+2. [HIGH] Reflected XSS in do_reflect: unescaped user input is reflected into the
+   HTML body.
+3. [HIGH] Command Injection in do_ping: the host parameter reaches a shell
+   command without sanitisation.
+4. [MEDIUM] Broken Access Control in do_ping: the endpoint performs no
+   authorization check before acting on the request.
