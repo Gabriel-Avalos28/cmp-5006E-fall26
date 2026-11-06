@@ -82,7 +82,7 @@ def parse_llm_review(raw: str, tool: str):
 
 
 def load_ground_truth() -> set[tuple]:
-    data = json.loads(GT_FILE.read_text())
+    data = json.loads(GT_FILE.read_text(encoding="utf-8"))
     return {(f["rule"].strip().lower(), f["location"].strip().lower())
             for f in data["findings"]}
 
@@ -143,7 +143,7 @@ def main() -> int:
 
     # --- non-determinism over the 3 REAL runs (axis 9) ----------------------
     key_sets = {n: {r.key() for r in real_runs[f"llm-run{n}"]} for n in (1, 2, 3)}
-    raw_counts = {n: sum(1 for ln in (HERE / f"llm_review_run{n}.txt").read_text().splitlines()
+    raw_counts = {n: sum(1 for ln in (HERE / f"llm_review_run{n}.txt").read_text(encoding="utf-8").splitlines()
                          if re.match(r"\s*\d+\.", ln)) for n in (1, 2, 3)}
     jac = []
     for a, b in combinations((1, 2, 3), 2):

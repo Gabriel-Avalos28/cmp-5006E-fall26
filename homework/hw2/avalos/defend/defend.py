@@ -62,7 +62,7 @@ def bypasses():
 
 
 def false_positives():
-    corpus = json.loads((FIXTURES / "benign_traffic.json").read_text())
+    corpus = json.loads((FIXTURES / "benign_traffic.json").read_text(encoding="utf-8"))
     # The SQLi WAF guards the login + search boxes (string inputs). ping_host is a
     # different sink (defended by the allowlist in B2), so it is reported but not
     # counted in the SQLi-WAF denominator — see honesty.md on denominator choice.
