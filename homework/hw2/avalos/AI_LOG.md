@@ -1,93 +1,56 @@
 # AI_LOG — Homework 2 (Web Attack & Defend)
 
 **Team:** Gabriel Avalos · Keoma Quiroga · David Bucheli
-**Tool:** Claude (Opus), via Claude Code, as a coding/writing pair-programmer and —
-in Part C only — as the LLM reviewer under test.
+**Primary tool:** Claude (via Claude Code), used as a coding/writing pair-programmer and, in Part C only, as the LLM reviewer under test.
 
-Per [`../../../resources/ethics-and-scope.md`](../../../resources/ethics-and-scope.md) and
-`resources/ai-policy.md`: AI use is allowed and must be disclosed; we are responsible
-for everything submitted. No real secrets, client data, or private lab details were
-pasted into any hosted model — all work is against the local `vuln-web` app and the
-course's own fixtures. Before submitting we read every script and every result file
-ourselves so we can defend the reasoning in the closed-book peer review.
+Per `resources/ai-policy.md` and `resources/ethics-and-scope.md`: AI use is allowed and logged here, and we are responsible for everything we submit. No real secrets, client data, or private lab details were pasted into any hosted model. All work is against the local `vuln-web` app and the course's own fixtures (synthetic data only).
 
-## What we asked AI to do
+---
 
-- Scaffold `homework/hw2/avalos/` to the assignment structure and wire the in-process
-  `vuln-web` harness with a per-field defense layer and the three `seclab` oracles.
-- Part A: send each baseline **through** the Medium filter and find three
-  oracle-confirmed bypasses per class (case / comment / nesting / alternate vector).
-- Part B: build the blocklist WAF, search for same-intent bypasses, implement the
-  parameterized fix, and measure coverage / bypass / false-positives.
-- Part C: run real `semgrep` and `bandit`, write the line-oriented scanner, and score
-  everything against the hand-built ground truth, including the non-determinism run.
-- Draft the README, honesty section, and this log.
+## Entry 1 — Scaffolding and test harness
 
-## What we kept
+**Tool:** Claude (via Claude Code)
+**What I asked:** "Scaffold `homework/hw2/avalos/` to the assignment structure and wire an in-process `vuln-web` harness with a per-field defense layer and the three `seclab` oracles."
+**What I got:** The directory layout, `common/paths.py`, `common/app_harness.py`, `common/medium_filter.py` and `run_all.py` (driver plus an HTTP smoke test).
+**What I did with it:** Kept all of it. I ran `python run_all.py` and confirmed `[PASS]` on all four stages. Every number in the README comes from that run, not from prose. I also documented that `vuln-web` has no difficulty levels, so `medium_filter.py` is our own reproduction of DVWA-Medium.
+**Did I understand it?** Yes. I read every script and can explain how the harness places the filter in front of each sink and how the oracles decide a finding is confirmed.
 
-- All runnable code. **Every number in the README comes from `python run_all.py`
-  against the real in-process app**, not from prose: Part A 3/3 per class (baselines
-  0/3, benign controls 0/3, `/safe` 0/3); B1 coverage 17/22 (77%) on a distinct SQLi
-  corpus + 5/5 oracle-confirmed bypasses + 6/21 (28.6%) FP; B2 vulnerable 9/9 vs
-  parameterized 0/9 with a legit
-  login still working; Part C the full scorecard and the 11/14/15 non-determinism.
-- The oracle-first discipline: a finding counts only when an oracle confirms a
-  security effect; we applied the **same bar to our own bypasses** (WAF-passed **and**
-  canary-leaked).
+## Entry 2 — Part A: oracle-confirmed bypasses
 
-## Entry 4 — Part C: acting as the LLM arm (read this one carefully)
+**Tool:** Claude (via Claude Code)
+**What I asked:** "Send each baseline payload through the Medium filter, then find three bypasses per class (SQLi, XSS, cmdi) that an oracle confirms."
+**What I got:** Case, comment, nesting and alternate-vector payloads for each class (uppercase `OR`, `/**/`, `<ScRiPt>`, `<scr<script>ipt>`, `<svg onload=>`, `|`, `&`, `$(…)`).
+**What I did with it:** Kept only payloads where the oracle confirmed 3/3 trials. I kept the blocked baselines (0/3), the benign controls (0/3) and the `/safe` true negative (0/3) as evidence that each bypass was necessary and not a strawman.
+**Did I understand it?** Yes. I can say why each payload evades the case-sensitive `str_replace`/strip rules. I also know the limits of the XSS and cmdi oracles (no browser, and `do_ping` does not execute a command). These are in `honesty.md` §4 and §7.
 
-The grading sandbox has no Ollama model and no API key, so `seclab.LLM`'s only working
-backend is `manual` ("paste prompts into a chat interface and paste answers back").
-**The assistant that built this homework is that chat interface.** For the duel we
-therefore produced **three independent reviews of `vulnweb_app.py`**, each generated
-in a *separate, isolated context that saw only the source file* (no shared memory
-between runs, no sight of the ground truth or of each other), to stand in for three
-sampled completions. They are committed verbatim as `duel/llm_review_run{1,2,3}.txt`.
+## Entry 3 — Part B: WAF, bypasses and the positive fix
 
-**This is not identical to one model API sampled three times at temperature>0.** It is
-variation between three independent cold reviews by the same assistant — a real and
-relevant thing to measure (a reviewer re-reading code *does* notice different things),
-but we do not claim it is strictly "model sampling non-determinism." We also keep the
-week-6 studio's canned small-model text as `llm_mock.py` and score it alongside, so
-the contrast is explicit: the small-model mock makes the Broken-Access-Control
-hallucination *every* run and flags the fixed `/safe` endpoint, while the real runs
-make BAC in only 1 of 3 and never flag `/safe`.
+**Tool:** Claude (via Claude Code)
+**What I asked:** "Build a blocklist WAF for the SQLi sink, find same-intent bypasses, implement a parameterized fix, and measure coverage / bypass / false positives."
+**What I got:** `common/waf.py` (six rules), `common/positive_fix.py` (`login_fixed` with bound parameters) and a first list of bypass candidates.
+**What I did with it:** **Rejected the first bypass set.** It relied on the `OR` keyword, which our own WAF blocks (`\bor\b`). Other candidates broke the SQL syntax and leaked nothing, which is the "model invents a bypass that doesn't work" failure the ethics doc warns about. I kept only the five candidates that pass the WAF **and** leak the canary on the real sink. I also rejected any wording that called the WAF "secure." It is reported as bypassable (5/5) and noisy (6/21 = 28.6% FP).
+**Did I understand it?** Yes. I can explain the `/* … :: … */` trick across the `user` and `pw` fields. I can also explain why parameterization gives a guarantee conditional on every code path using bound parameters, which a blocklist cannot give.
 
-## What AI got wrong (and we corrected)
+## Entry 4 — Part C: scanners and an overclaimed lesson
 
-- **Overclaimed scanner lesson.** An earlier draft concluded "the scanner can't see
-  the SQLi because it spans two lines." That is only true of a *single-line* rule. We
-  added a real `semgrep` **multiline** rule that **does** catch the two-line query (and
-  `bandit` catches it via data-flow), and rewrote the finding as "the miss is a
-  rule-design choice, not a law of scanners." Caught by actually running the tools.
-- **First WAF-bypass set was wrong.** Initial SQLi bypasses relied on the `OR`
-  keyword, which our own WAF blocks (`\bor\b`); others broke SQL syntax and leaked
-  nothing. We kept only the five that pass the WAF **and** leak the canary on the real
-  sink — the "an LLM invents a bypass that doesn't work" failure the ethics doc warns
-  about, caught only because we insisted on oracle confirmation.
-- **Free-text parser over-matched.** The Part-C parser first counted any line
-  mentioning "XSS"/"SQL" anywhere (e.g. a security-headers finding that *references*
-  XSS) as that class. We anchored it on the declared `[SEV] <class> in <function>`
-  structure so each finding is scored by its real class — itself the "parsing model
-  output is error-prone" lesson.
+**Tool:** Claude (via Claude Code)
+**What I asked:** "Run real `semgrep` and `bandit`, write a line-oriented regex scanner, and score everything against `ground_truth.json`."
+**What I got:** The scanners, our own semgrep rules, the scoring script, and an initial conclusion that "the scanner can't see the SQLi because it spans two lines."
+**What I did with it:** **Corrected the conclusion.** It is only true of a single-line rule. We added a multiline semgrep rule that catches the two-line query (bandit catches it through data flow), and rewrote the finding as "the miss is a rule-design choice, not a law of scanners." The free-text parser also over-matched (any line mentioning "XSS"/"SQL" counted as that class), so we anchored it on the `[SEV] <class> in <function>` structure.
+**Did I understand it?** Yes. I re-ran the tools myself, and the committed semgrep/bandit rows reproduce when both tools are installed.
 
-## What we rejected
+## Entry 5 — Part C: the LLM arm (read this one carefully)
 
-- Reporting the LLM arm as a live production model. It is disclosed above as
-  independent assistant reviews + a documented mock; `honesty.md` §3 states the duel
-  measures a cold off-the-shelf review, not a tuned ceiling.
-- Any claim that the WAF is "secure." It is reported as bypassable (5/5) and noisy
-  (28.6% FP); the guarantee belongs only to the positive model.
-- Counting the LLM's out-of-scope but *real* findings as false positives to make the
-  duel's story cleaner. `honesty.md` §2 explains the scoring-scope choice and gives the
-  stricter numbers.
+**Tool:** Claude (via Claude Code), acting as the LLM reviewer under test
+**What I asked:** Three separate reviews of `vulnweb_app.py`, each in an isolated context that saw only the source file (no ground truth, no other run), with the same generic prompt.
+**What I got:** `duel/llm_review_run{1,2,3}.txt` with 11, 14 and 15 findings. Runs 1 and 3 score 1.00. Run 2 adds a Broken Access Control hallucination at `do_POST` (F1 0.86).
+**What I did with it:** Committed the transcripts verbatim and scored them against the hand-built ground truth. The environment had no Ollama model and no API key, so `seclab.LLM` could only use the `manual` backend, and the assistant acted as that chat interface. **This is not one model API sampled three times at temperature > 0.** It is three independent cold reviews by the same assistant, and we do not claim it is strict sampling non-determinism. The isolation of the contexts cannot be verified from the transcripts alone. We also score the week-6 small-model text (`llm_mock.py`) as a contrast baseline. I rejected two framings: calling the LLM arm a live production model, and counting the LLM's real out-of-scope findings (plaintext passwords, missing rate limiting, …) as false positives to make the story cleaner. `honesty.md` §2 and §3 give the stricter numbers and the effort asymmetry.
+**Did I understand it?** Yes. I can explain why the perfect scores of runs 1 and 3 are weak evidence given the scoring scope and the cold prompt. I can also explain why the BAC claim is a hallucination: the app has no auth, session or role code.
 
-## Human verification before submission
+## Entry 6 — README and honesty drafting
 
-- [ ] Confirm the group members and the submission path with the team (this folder is
-      the single group PR; Quiroga and Bucheli should not also submit separately).
-- [ ] Run `python run_all.py` in your own environment and confirm `[PASS]` on all four.
-- [ ] (Optional) With Ollama: `ollama pull qwen2.5:3b` and compare a real local-model
-      run against our committed transcripts.
-- [ ] Re-read every payload and rule so you can defend them in the peer review.
+**Tool:** Claude (via Claude Code)
+**What I asked:** "Draft the README, `honesty.md` and this log from our actual results."
+**What I got:** First drafts of all three documents.
+**What I did with it:** Checked every number against the files in `*/results/` and the output of `python run_all.py`, and edited the prose so each claim is backed by a committed result. Kept the seven self-critiques in `honesty.md`.
+**Did I understand it?** Yes. I read everything and can defend the reasoning in the peer review.

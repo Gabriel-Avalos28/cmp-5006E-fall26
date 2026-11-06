@@ -1,3 +1,4 @@
+# HW2 — Web Attack & Defend — Team: Gabriel Avalos, Keoma Quiroga, David Bucheli
 # HW2 Part C — our own semgrep rules (not the registry's), run for real against
 # labs/vuln-web/app/vulnweb_app.py. Two SQLi rules on purpose: a NAIVE single-line
 # one that misses the two-line query (the classic scanner failure mode), and a
