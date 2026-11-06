@@ -2,7 +2,7 @@
 
 **Team:** Gabriel Avalos · Keoma Quiroga · David Bucheli — Homework 2
 
-We address five points; the first four are the ones the assignment names.
+We address six points; the first four are the ones the assignment names.
 
 ### 1. Was the ground-truth set built independently of the tools we scored?
 
@@ -64,3 +64,16 @@ bypass work — against a blocklist, measured on both blades — is Part B, wher
 bypasses had to both pass the WAF *and* leak the canary on the real sink to count
 (1 of our first 4 candidates failed that bar and was replaced only after the sink
 disproved it).
+
+### 6. Our cmdi "confirmation" is a simulation, not a real shell.
+
+`do_ping` never calls `os.system`/`subprocess` — by design, so the lab is safe to
+run anywhere. It builds `ping -c 1 {host}` and reports `injection_detected` when a
+shell metacharacter appears. So our oracle proves the **untrusted string reached
+the command-construction sink**, which is the real bug, but it does **not** prove a
+second command actually executed (no process was spawned, nothing was exfiltrated
+or written). It also abstracts away OS divergence: our bypass uses `|`, but on a
+real `cmd.exe` the separators differ (`;` is not a separator there; `&`/`&&` are),
+and on POSIX `/bin/sh` the behaviour of `|` vs `;` vs backticks differs again. In a
+real target we would confirm with an out-of-band effect (e.g. a timing delay via
+`| ping -c 5 127.0.0.1`, or a DNS/file side-channel), not a self-reported flag.

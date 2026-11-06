@@ -166,8 +166,10 @@ Evidence: [`duel/results/duel_scores.csv`](duel/results/duel_scores.csv), [`duel
 
 ## Part D — Honesty
 
-See [`honesty.md`](honesty.md): where our attack, defence, or comparison might be unfair
-(ground-truth independence, effort asymmetry, benign-corpus realism, least-reproducible finding).
+See [`honesty.md`](honesty.md): six substantive self-critiques — ground-truth
+independence, effort asymmetry (WAF tuned vs. LLM left zero-shot), benign-corpus
+realism, our least-reproducible finding (XSS), the self-authored Medium filter, and
+the fact that our cmdi oracle confirms the sink was *reached*, not that a real shell ran.
 
 ## AI use
 
