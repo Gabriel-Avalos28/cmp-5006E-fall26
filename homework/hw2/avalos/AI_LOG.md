@@ -51,3 +51,16 @@ is against the local `vuln-web` app and the course's own fixtures.
   precision comparison must not be read as "LLMs lose."
 - Any claim that the WAF is "secure." The deliverable reports it as bypassable
   (4/4) and noisy (7.7% FP); the guarantee belongs only to the positive model.
+
+## Methodology note — cross-checking with a second assistant
+
+As a check on our own work, we ran the whole assignment a second time with a
+different assistant (Google Antigravity / Gemini) in a throwaway local folder, on a
+separate port, and compared results. The two independent runs converged on the
+same evidence — the same three confirmed classes (3/3 each), the same four
+oracle-confirmed WAF bypasses, the same 2/26 false positives, and the same duel
+scores — which raised our confidence that the numbers are correct and
+reproducible, not an artifact of one implementation. We submit a single
+deliverable (this folder); the scratch folder was discarded. One concrete
+improvement came out of that comparison: the cmdi-simulation caveat now in
+`honesty.md` §6.
