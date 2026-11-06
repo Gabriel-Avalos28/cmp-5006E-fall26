@@ -1,7 +1,7 @@
 # Homework 2 — Web Attack & Defend
 
 **Team:** Gabriel Avalos · Keoma Quiroga · David Bucheli
-**Course:** CMP-5006E (Fall 2026) — Homework 2 (graded version of the week 6/7 studios)
+**Course:** CMP-5006E (Fall 2026) — HW2 (graded version of the week 6/7 studios)
 **Target:** `vuln-web` (`labs/vuln-web/app/vulnweb_app.py`), run **in-process on 127.0.0.1** — laptop-only.
 **Scope/ethics:** we attack only the app we run ourselves; synthetic data only. See [`../../resources/ethics-and-scope.md`](../../resources/ethics-and-scope.md).
 
@@ -13,163 +13,170 @@
 
 ```bash
 cd homework/hw2/avalos
-python run_all.py          # runs Parts A, B, C; regenerates every CSV + transcript
+python run_all.py          # Parts A, B, C + a real HTTP smoke test; regenerates every CSV/JSON
 # or individually:
 python attack/attack.py    # Part A
 python defend/defend.py    # Part B
 python duel/duel.py        # Part C
+python duel/scanners.py    # see each classical scanner's raw output
 ```
 
-No Docker, no Ollama, no API key required. The harness (`_harness.py`) brings the
-course `vuln-web` app up in-process, exactly like the GIVEN week-6/7 harnesses.
+No Docker, no Ollama, no API key required to reproduce the committed numbers. The
+duel's classical arm uses **real `semgrep` and real `bandit`** when they are
+installed (`pip install semgrep bandit`); if they are absent the duel skips them and
+notes it — the always-runnable `regex-naive` scanner still runs. The LLM arm uses
+three committed real-model transcripts (see `AI_LOG.md` Entry 4).
 
 ## Layout
 
 ```
 avalos/
-  _harness.py                 in-process vuln-web + senders + fixture loaders
-  attack/   medium.py         a "Medium"-level filter (DVWA-Medium stand-in)
-            attack.py         Part A: 3 classes, each confirmed through a bypass
-            results/attack_findings.csv
-  defend/   waf.py            Part B engine: WAF blocklist + parameterized sink
-            defend.py         Part B: coverage, bypass (axis 4), FP (axis 5), positive fix
-            results/*.csv
-  duel/     llm_backend.py    the documented LLM mock (two differing runs)
-            duel.py           Part C: scanner vs LLM vs hand-built ground truth
-            llm_review_run{1,2}.txt, results/*.csv
-  honesty.md                  Part D — where our work might be unfair
-  AI_LOG.md                   required AI-use log
+  common/     paths.py          repo-root locator (portable; no absolute paths)
+              app_harness.py    in-process vuln-web + per-field defense layer + seclab oracles
+              medium_filter.py  the DVWA-Medium filter Part A bypasses (wired in front of each sink)
+              waf.py            Part B1 blocklist WAF (negative model)
+              positive_fix.py   Part B2 structural fixes (parameterize / escape / allowlist)
+  attack/     attack.py         Part A: 3 classes, baseline-through-filter + 3 bypasses each
+              results/attack_findings.csv · .json
+  defend/     defend.py         Part B: coverage, bypass (axis 4), FP by field (axis 5), positive fix
+              results/*.csv · defend_summary.json
+  duel/       scanners.py       regex-naive + real semgrep + real bandit
+              semgrep_rules.yaml  our own rules (naive single-line AND a multiline SQLi rule)
+              llm_mock.py       the documented small-model mock (contrast baseline)
+              llm_review_run{1,2,3}.txt  three independent REAL-model reviews (verbatim)
+              duel.py           scores everything vs the hand-built ground truth
+              results/*.csv · duel_report.json
+  honesty.md                    Part D — where our work might be unfair (7 points)
+  AI_LOG.md                     required AI-use log
+  run_all.py                    driver + real HTTP smoke test
 ```
 
 ---
 
 ## Part A — Attack (3 classes, each oracle-confirmed through a filter bypass)
 
-`vuln-web` ships no difficulty levels, so `attack/medium.py` is an explicit
-stand-in for **DVWA's Medium** filter: a per-sink blocklist that stops the obvious
-week-6 payload. For each class we show the naive payload **blocked**, a one-line
-**bypass** that the filter **passes**, and a **sound oracle** confirming the effect
-on the real sink — fired `trials=3` so a flaky confirmation can't pass as reliable.
+`vuln-web` ships no difficulty levels, so `common/medium_filter.py` is an explicit,
+documented stand-in for **DVWA's Medium** filter, wired **in front of each sink** by
+the harness. For every class we send a **baseline** payload through the filter and
+show the oracle does **not** confirm (proof the bypass was necessary, not a
+strawman), then **three bypasses** that the filter passes and a **sound oracle**
+confirms on the real sink — each fired `trials=3`.
 
-| Class | OWASP 2021 | Naive payload (blocked by Medium) | Bypass (passes Medium) | Oracle | Confirmed |
-|---|---|---|---|---|---|
-| **SQLi** @ `do_login` | A03 Injection | `admin' OR 1=1--` | `admin' OR 'a'='a'--` | admin canary `FLAG-sqli-9f2c-…` returned | **3/3** |
-| **XSS** @ `do_reflect` | A03 Injection | `<script>alert('XSS-7f3a')</script>` | `<img src=x onerror=alert('XSS-7f3a')>` | injected markup survives **unescaped** | **3/3** |
-| **cmdi** @ `do_ping` | A03 Injection | `127.0.0.1; whoami` | `127.0.0.1 \| whoami` | shell metachar reached command context | **3/3** |
+| Class | OWASP 2021 | Baseline (blocked, 0/3) | Bypasses (all 3/3) | Oracle |
+|---|---|---|---|---|
+| **SQLi** @ `do_login` | A03 Injection | `admin' or '1'='1` | uppercase `OR` · `/**/` comment+case · inline `-- ` | admin canary `FLAG-sqli-9f2c-…` exfiltrated |
+| **XSS** @ `do_reflect` | A03 Injection | `<script>…</script>` | mixed-case `<ScRiPt>` · nested `<scr<script>ipt>` · `<svg onload=>` | injected markup survives **unescaped** |
+| **cmdi** @ `do_ping` | A03 Injection | `127.0.0.1; whoami` | pipe `\|` · single `&` · `$(…)` | shell metacharacter reached the command context |
 
-Controls that **must stay clean**, and do (0/3 each):
+Controls that must stay clean, and do (**0/3** each): SQLi benign `alice`; XSS benign
+`Keoma O'Brien`; cmdi benign `api.internal.example`; and the XSS **true negative** —
+the same `<svg>` bypass at the fixed `/safe` endpoint (escaped by `html.escape`).
+Evidence: [`attack/results/attack_findings.csv`](attack/results/attack_findings.csv).
 
-- SQLi benign `alice` + wrong password → no canary.
-- XSS benign `Keoma O'Brien` (legit apostrophe) → no live marker.
-- XSS **true negative** `/safe` (same `<img>` bypass) → escaped by `html.escape`, 0/3.
-- cmdi benign `api.internal.example` → no metacharacter.
-
-**Oracle discipline (axis 3):** each oracle checks a *security-relevant effect*
-(exfiltrated canary / live unescaped element / metacharacter reaching the command),
-never a reflected string. Evidence: [`attack/results/attack_findings.csv`](attack/results/attack_findings.csv).
-
-**Broken Access Control (#1) — reachable here?** No. `vuln-web` has **no**
-auth, session, or role code at all: `do_login` leaks the secret on *any* matching
-row and there is no privileged operation gated by identity. Access control is an
-*application-semantics* property; with no notion of "who may do what," there is no
-access-control boundary to break. (This is the exact lesson Part C makes the LLM
-fail on — it hallucinates a BAC finding anyway.)
+**Broken Access Control (#1) — reachable here?** No. `vuln-web` has no auth, session
+or role code: there is no access-control boundary to break. The SQLi reads the admin
+row, but that is a confidentiality failure **via Injection (A03)**, not a broken
+A01 decision — matching `ground_truth.json`'s explicit `not_present`. (Part C makes
+the LLM fail on exactly this.)
 
 ---
 
 ## Part B — Defend the SQLi finding, then bypass our own defence
 
-### B1 — Negative model (WAF blocklist) — `defend/waf.py`
+### B1 — Negative model (WAF blocklist) — `common/waf.py`
 
-Five ModSecurity-CRS-style rules (numeric tautology, string tautology, `UNION
-SELECT`, `DROP TABLE`, `--`).
+Six case-insensitive, word-boundary rules (`\bor\b`, `union`, `select`, `drop`, `--`,
+`1=1`). It deliberately does **not** block the apostrophe — real usernames contain
+one (`O'Brien`) — which is the FP trade-off axis 5 measures.
 
 | Blade | Result | Evidence |
 |---|---|---|
-| **Coverage** on known attacks (axis 3) | **4/4 blocked** | [`defend/results/waf_coverage.csv`](defend/results/waf_coverage.csv) |
-| **Bypass** (axis 4) — *mandatory* | **4/4 genuine** bypasses (WAF-passed **and** canary-leaked on the real sink) | [`defend/results/waf_bypasses.csv`](defend/results/waf_bypasses.csv) |
-| **False positives** (axis 5) — *mandatory* | **2/26 = 7.7%** legit inputs blocked | [`defend/results/waf_false_positives.csv`](defend/results/waf_false_positives.csv) |
+| **Coverage** (axis 3) | **4/4** Part-A payloads blocked | [`waf_coverage.csv`](defend/results/waf_coverage.csv) |
+| **Bypass** (axis 4) — *mandatory* | **5/5** candidates pass the WAF **and** leak the canary | [`waf_bypasses.csv`](defend/results/waf_bypasses.csv) |
+| **False positives** (axis 5) — *mandatory* | **6/21 = 28.6%** benign blocked | [`waf_false_positives.csv`](defend/results/waf_false_positives.csv) |
 
-The four bypasses (all same intent = leak the admin canary):
+The five bypasses all use the `"<user> :: <pw>"` trick: a `/*` block comment opened in
+the `user` field closes in the `pw` field, swallowing the `' AND pw = '` the app
+concatenates between them — leaving a tautology. None contains a word the rules name:
+quoted `'1'='1'`, `GLOB '*`, inequality `2>1`, quoted `'a'='a'`, and `LIKE '%`. Each is
+**oracle-confirmed** (WAF passed **and** `do_login` returned the canary).
 
-1. `admin' OR 'a' LIKE 'a ` — `LIKE` tautology, no `=`, no `--`.
-2. `admin' OR 'x'<>'y` — `<>` inequality is always true; evades the `=` rules.
-3. `admin'/**/OR/**/'a'='a` — inline `/**/` comment defeats the rule's `\bor\b\s+` whitespace anchor.
-4. `admin'/**/oR/**/'1'='1` — mixed case + `/**/`: the classic tautology still slips through.
-
-Each is **oracle-confirmed**: the WAF passed it *and* the real `do_login`
-returned the canary `FLAG-sqli-9f2c-admin-session`.
-
-The two false positives are genuinely benign requests the blocklist wrongly blocks:
-
-- `"drop table tennis lessons for beginners"` → fired **SQLi DROP TABLE**.
-- `"reserve the drop table at the makerspace friday"` → fired **SQLi DROP TABLE**.
+The FP rate is reported **per field**, because the number depends on the denominator:
+**login_username 0/9** (word boundaries save `select_committee_chair`,
+`unionrep_delegate`), **search_or_name 6/12** (free text like *"select the union
+option on the benefits form"* and *"my order number is 1=1-2024"* trips it). 28.6% is
+the honest blended number over the two guarded fields.
 
 ### B2 — Positive model (parameterization) — the real fix
 
-`parameterized_login` binds `user`/`pw` as **values** (`?` placeholders) against the
-same canary DB. We re-ran **all** Part-A SQLi payloads **and** the four B1 bypasses
-(6 hostile inputs) through both sinks:
+`login_fixed` binds `user`/`pw` as values (`?` placeholders) against the app's **own**
+DB (`vulnweb_app.make_db`). Re-running **all** Part-A SQLi payloads **and** the five
+B1 bypasses (9 hostile inputs):
 
 | Sink | Canary leaked |
 |---|---|
-| Vulnerable `do_login` (string-formatted) | **6/6** |
-| Parameterized `do_login` (bound params) | **0/6** |
+| Vulnerable `do_login` (string-formatted) | **9/9** |
+| Parameterized `login_fixed` (bound params) | **0/9** |
 
-Evidence: [`defend/results/positive_fix.csv`](defend/results/positive_fix.csv).
+A legitimate login (`admin`/`s3cr3t`) **still works** under the fix, so this is a real
+fix, not "reject everything." Evidence: [`positive_fix.csv`](defend/results/positive_fix.csv).
 
-**The guarantee (axis 2), stated as a conditional:** *for any input string, the
-parameterized query's structure is fixed at parse time, so no input can change
-which rows are selected — injection cannot succeed, for any input.* The WAF cannot
-make this claim: it enumerates *known bad* (open-ended), so bypass #5 always exists;
-the positive model enumerates the *good path* structurally. **Headline:** the
-blocklist raised cost (bypassable 4/4 + 7.7% noise); parameterization gave a
-guarantee (0/6, for any input).
+**Guarantee (axis 2), as a conditional:** *for any string value of `user`/`pw`, the
+parameterized query's structure is fixed at parse time, so no input can change which
+rows are selected — provided every code path that reaches this table uses bound
+parameters (one remaining string-built query would void it).* The WAF cannot state
+this: it enumerates known-bad, so a sixth bypass always exists (we found five in
+minutes). **Headline:** the blocklist **raised cost** (bypassable 5/5 + 28.6% noise);
+parameterization **gave a guarantee** (0/9, for any input).
 
 ---
 
 ## Part C — The duel: LLM vs. scanner
 
-Both arms point at the same `vulnweb_app.py` and are scored against a **hand-built
-ground truth** (`homework/hw2/duel-2-web/ground_truth.json`, built by reading the
-source — *not* by running a tool). `sqlmap`/`semgrep` are not installed and Ollama
-has no model pulled, so — as the assignment permits — the classical arm is the
-course's line-oriented regex scanner (a Semgrep/CodeQL stand-in) and the LLM arm is
-the **documented mock** (`duel/llm_backend.py`), run twice.
+Both arms point at the same `vulnweb_app.py`, scored against the hand-built
+`ground_truth.json`. Each tool is scored on the **canonical class set**
+{`sqli`, `xss`, `cmdi`, `broken-access-control`} the ground truth can adjudicate;
+real-but-unscored findings (plaintext passwords, missing rate limiting, …) are
+reported separately rather than counted as false positives (see `honesty.md` §2).
 
 | Tool | TP | FP | FN | Precision | Recall | F1 |
 |---|---|---|---|---|---|---|
-| regex-scanner | 2 | 0 | 1 | **100%** | 67% | 0.80 |
-| llm-run1 | 3 | 2 | 0 | 60% | **100%** | 0.75 |
-| llm-run2 | 3 | 1 | 0 | 75% | **100%** | 0.86 |
+| `regex-naive` (line-oriented) | 2 | 0 | 1 | **100%** | 67% | 0.80 |
+| `semgrep` (real, our rules) | 3 | 1 | 0 | 75% | **100%** | 0.86 |
+| `bandit` (real) | 1 | 0 | 2 | **100%** | 33% | 0.50 |
+| LLM run 1 (real model) | 3 | 0 | 0 | **100%** | **100%** | **1.00** |
+| LLM run 2 (real model) | 3 | 1 | 0 | 75% | **100%** | 0.86 |
+| LLM run 3 (real model) | 3 | 0 | 0 | **100%** | **100%** | **1.00** |
+| LLM mock (small-model baseline) | 3 | 2 | 0 | 60% | **100%** | 0.75 |
 
-Evidence: [`duel/results/duel_scores.csv`](duel/results/duel_scores.csv), [`duel/results/llm_findings.csv`](duel/results/llm_findings.csv).
+Evidence: [`duel_scores.csv`](duel/results/duel_scores.csv), [`nondeterminism.csv`](duel/results/nondeterminism.csv), [`duel_report.json`](duel/results/duel_report.json).
 
-1. **Scores.** Classic shape: the scanner is precise but **misses the SQLi**; the
-   LLM finds everything but **cries wolf**.
-2. **Scanner's worst miss:** `sqli @ do_login`. The rule needs the interpolation on
-   the same line as `SELECT`, but the query spans two lines — a real failure mode of
-   single-line rules, not a contrivance.
-   **LLM's best hallucination:** **Broken Access Control** — confidently reported in
-   an app with *zero* auth/session/role code (ground truth lists it as *not present*).
-3. **Non-determinism (axis 9):** over two runs the LLM's finding **set changed**
-   (Jaccard = 0.50). Run 1 also flagged the fixed `do_reflect_safe` (a false
-   positive) and put BAC on `do_login`; run 2 dropped the `/safe` flag and moved BAC
-   to `do_ping`. A review you can't reproduce isn't evidence — the two raw
-   transcripts are committed ([`duel/llm_review_run1.txt`](duel/llm_review_run1.txt), [`duel/llm_review_run2.txt`](duel/llm_review_run2.txt)).
-4. **Did either tool find an access-control issue?** No *real* one exists. The
-   scanner correctly stayed silent; the LLM **hallucinated** one on both runs (just
-   at different locations). This is the week-6 lesson: OWASP #1 needs application
-   context that neither a pattern rule nor a context-free LLM review has.
+1. **Scanner's worst miss:** `regex-naive` misses `sqli @ do_login` because the query
+   spans two physical lines (verb on one, `{user}` on the next). **But our `semgrep`
+   multiline rule catches it** — so the miss is a **rule-design choice, not a law of
+   scanners** (the point Avalos's earlier draft overstated, now corrected in the same
+   submission). `bandit`'s data-flow B608 also catches that SQLi but misses the
+   XSS/cmdi shapes — a different precision/recall trade.
+2. **LLM's best hallucination:** `broken-access-control @ do_post` — confidently
+   asserted in an app with **zero** auth/session/role code (ground truth:
+   `not_present`). The small-model mock makes the same BAC claim *every* run and also
+   flags the fixed `/safe` endpoint.
+3. **Non-determinism (axis 9), 3 real runs:** recall is **stable at 100%** (all three
+   real sinks every run); raw finding counts vary **11 / 14 / 15**; the only scored
+   finding that changes is the **BAC hallucination**, present in **1 of 3** runs
+   (mean pairwise Jaccard 0.83). What moves between runs is the *noise*, not the real
+   findings — and a strong model's noise is smaller and less consistent than the small
+   model's, which is itself the lesson about which model you trust.
+4. **Access control:** no real A01 exists; no scanner reports it; the real LLM invents
+   it in 1/3 runs and the mock in every run — a hallucination, not a finding.
 
 ---
 
 ## Part D — Honesty
 
-See [`honesty.md`](honesty.md): six substantive self-critiques — ground-truth
-independence, effort asymmetry (WAF tuned vs. LLM left zero-shot), benign-corpus
-realism, our least-reproducible finding (XSS), the self-authored Medium filter, and
-the fact that our cmdi oracle confirms the sink was *reached*, not that a real shell ran.
+See [`honesty.md`](honesty.md): seven self-critiques — ground-truth independence, the
+scoring-scope decision, effort asymmetry, the self-authored Medium filter and WAF,
+benign-corpus realism, our least-reproducible finding (XSS), and the cmdi simulation.
 
 ## AI use
 

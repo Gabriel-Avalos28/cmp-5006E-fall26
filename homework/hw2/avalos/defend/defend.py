@@ -1,111 +1,172 @@
-# Homework 2 — Web Attack & Defend — Part B (Defend, then bypass) — Team: Gabriel Avalos, Keoma Quiroga, David Bucheli
+# HW2 — Web Attack & Defend — Part B (Defend, then bypass) — Team: Gabriel Avalos, Keoma Quiroga, David Bucheli
 """Part B — defend the SQLi finding two ways and measure BOTH blades.
 
-B1 (negative / WAF):
-  * coverage on the KNOWN_SQLI payloads (axis 3),
-  * >= 3 same-intent BYPASSES that evade the rules AND still leak the canary on
-    the real sink, oracle-confirmed (axis 4) — mandatory,
-  * false-positive rate on the provided benign corpus (axis 5) — mandatory.
+We defend SQLi: the most severe Part-A finding (auth bypass + admin-canary exfil).
 
-B2 (positive / parameterization):
-  * re-run every Part-A payload AND every B1 bypass through the parameterized
-    sink; show 0/N leak the canary — a structural guarantee for ANY input (axis 2).
+B1 (NEGATIVE / WAF blocklist, common/waf.py):
+  * axis 3  coverage : how many Part-A SQLi payloads it blocks.
+  * axis 4  BYPASS   : >=3 same-intent payloads that pass the WAF AND still leak the
+                       canary on the real sink (oracle-filtered) — MANDATORY.
+  * axis 5  FALSE POS: run the provided benign corpus through it; report the FP rate
+                       PER FIELD (login vs search) + a named victim — MANDATORY.
 
-Run:  python defend/defend.py   (writes results/{waf_coverage,waf_bypasses,waf_false_positives,positive_fix}.csv)
+B2 (POSITIVE / parameterization, common/positive_fix.py):
+  * re-run every Part-A payload AND every working B1 bypass through the parameterized
+    sink; show 0/N leak — a structural guarantee for ANY input (axis 2);
+  * prove a LEGIT login still works, so the fix is not "reject everything."
+
+Run:  python defend/defend.py
 """
 from __future__ import annotations
 
+import csv
+import json
 import sys
 from pathlib import Path
 
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+from common import app_harness as H          # noqa: E402
+from common import waf as WAFMOD              # noqa: E402
+from common.paths import FIXTURES            # noqa: E402
+
 HERE = Path(__file__).resolve().parent
-sys.path.insert(0, str(HERE.parent))
-sys.path.insert(0, str(HERE))
-
-import _harness as H   # noqa: E402
-import waf             # noqa: E402
-
-CANARY = H.canary()
 
 
-def leaks_canary_on_real_sink(payload: str) -> bool:
-    """Sound oracle (seclab discipline): send through the REAL vulnerable /login
-    and confirm the admin secret came back — not the payload echoed."""
-    return CANARY in H.login_send(payload)
+def _leaks(send, text: str) -> bool:
+    return H.CANARY in send(text)
 
 
-def main():
-    H.serve()
+def coverage():
+    send = H.make_send("sqli", defense=WAFMOD.WAF)
+    rows, blocked = [], 0
+    for p in WAFMOD.KNOWN_SQLI:
+        u, pw = H.split_sqli(p)
+        rule = WAFMOD.first_rule_hit(u) or WAFMOD.first_rule_hit(pw)
+        is_blocked = rule is not None
+        blocked += is_blocked
+        rows.append({"payload": p, "blocked": is_blocked, "rule": rule or "PASSED"})
+    return rows, blocked
 
-    # --- B1.1 coverage on known attacks -------------------------------------
-    cov_rows, blocked = [], 0
-    for p in waf.KNOWN_SQLI:
-        rule = waf.waf_block(p)
-        blocked += rule is not None
-        cov_rows.append([p, rule or "PASSED", rule is not None])
-    H.write_csv(HERE / "results" / "waf_coverage.csv",
-                ["payload", "waf_rule_fired", "blocked"], cov_rows)
 
-    # --- B1.2 bypass it (axis 4): keep only WAF-passed AND canary-leaking ----
-    by_rows, real_bypasses = [], 0
-    for payload, why in waf.CANDIDATE_BYPASSES:
-        passed = waf.waf_block(payload) is None
-        leaks = leaks_canary_on_real_sink(payload) if passed else False
-        genuine = passed and leaks
-        real_bypasses += genuine
-        by_rows.append([payload, why, passed, leaks, genuine])
-    H.write_csv(HERE / "results" / "waf_bypasses.csv",
-                ["bypass_payload", "technique", "waf_passed",
-                 "leaks_canary_real_sink", "genuine_bypass"], by_rows)
+def bypasses():
+    send = H.make_send("sqli", defense=WAFMOD.WAF)   # through the WAF
+    rows = []
+    for payload, technique in WAFMOD.CANDIDATE_BYPASSES:
+        u, pw = H.split_sqli(payload)
+        waf_passed = (WAFMOD.first_rule_hit(u) is None) and (WAFMOD.first_rule_hit(pw) is None)
+        leaked = _leaks(send, payload) if waf_passed else False
+        rows.append({"payload": payload, "technique": technique,
+                     "waf_passed": waf_passed, "leaks_canary": leaked,
+                     "genuine_bypass": waf_passed and leaked})
+    return rows
 
-    # --- B1.3 false positives on benign corpus (axis 5) ---------------------
-    benign = H.load_benign()
-    fp_rows = []
-    for inp in benign:
-        rule = waf.waf_block(inp)
-        if rule is not None:
-            fp_rows.append([inp, rule])
-    fp_rate = len(fp_rows) / len(benign) if benign else 0.0
-    H.write_csv(HERE / "results" / "waf_false_positives.csv",
-                ["benign_input_blocked", "waf_rule_fired"], fp_rows)
 
-    # --- B2 positive fix: re-run A payloads + B1 bypasses --------------------
-    a_payloads = ["admin' OR 1=1--", "admin' OR 'a'='a'--"]        # Part-A SQLi
-    all_payloads = a_payloads + [p for p, _ in waf.CANDIDATE_BYPASSES]
-    pos_rows, vuln_leaks, param_leaks = [], 0, 0
-    for p in all_payloads:
-        on_vuln = leaks_canary_on_real_sink(p)          # the broken sink
-        on_param = CANARY in waf.parameterized_login(p, "wrong")   # the fix
+def false_positives():
+    corpus = json.loads((FIXTURES / "benign_traffic.json").read_text())
+    # The SQLi WAF guards the login + search boxes (string inputs). ping_host is a
+    # different sink (defended by the allowlist in B2), so it is reported but not
+    # counted in the SQLi-WAF denominator — see honesty.md on denominator choice.
+    guarded = {"login_username": corpus["login_username"],
+               "search_or_name": corpus["search_or_name"]}
+    rows, per_field = [], {}
+    for field, items in guarded.items():
+        blocked_here = 0
+        for s in items:
+            rule = WAFMOD.first_rule_hit(s)
+            rows.append({"field": field, "benign_input": s,
+                         "blocked": rule is not None, "rule": rule or ""})
+            blocked_here += rule is not None
+        per_field[field] = (blocked_here, len(items))
+    total = sum(n for _, n in per_field.values())
+    blocked = sum(b for b, _ in per_field.values())
+    return rows, blocked, total, per_field
+
+
+def positive_fix():
+    send_fixed = H.make_send("sqli", defense=None, fixed=True)
+    send_vuln = H.make_send("sqli", defense=None, fixed=False)
+    working = [p for p, _ in WAFMOD.CANDIDATE_BYPASSES]
+    payloads = WAFMOD.KNOWN_SQLI + working
+    rows, vuln_leaks, fix_leaks = [], 0, 0
+    for p in payloads:
+        on_vuln = _leaks(send_vuln, p)
+        on_fix = _leaks(send_fixed, p)
         vuln_leaks += on_vuln
-        param_leaks += on_param
-        pos_rows.append([p, on_vuln, on_param])
-    H.write_csv(HERE / "results" / "positive_fix.csv",
-                ["payload", "leaks_on_vulnerable_sink", "leaks_on_parameterized"],
-                pos_rows)
+        fix_leaks += on_fix
+        rows.append({"payload": p, "leaks_on_vulnerable": on_vuln,
+                     "leaks_on_parameterized": on_fix})
+    legit_ok = H.CANARY in send_fixed("admin :: s3cr3t")   # real login still works
+    return rows, vuln_leaks, fix_leaks, len(payloads), legit_ok
 
-    # --- console report ------------------------------------------------------
+
+def _write(path: Path, rows: list[dict]):
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with path.open("w", newline="", encoding="utf-8") as fh:
+        w = csv.DictWriter(fh, fieldnames=list(rows[0].keys()))
+        w.writeheader()
+        w.writerows(rows)
+
+
+def main() -> int:
+    cov_rows, blocked = coverage()
+    by_rows = bypasses()
+    fp_rows, fp_blocked, fp_total, per_field = false_positives()
+    b2_rows, vuln_leaks, fix_leaks, n, legit_ok = positive_fix()
+
+    _write(HERE / "results" / "waf_coverage.csv", cov_rows)
+    _write(HERE / "results" / "waf_bypasses.csv", by_rows)
+    _write(HERE / "results" / "waf_false_positives.csv", fp_rows)
+    _write(HERE / "results" / "positive_fix.csv", b2_rows)
+
+    genuine = [r for r in by_rows if r["genuine_bypass"]]
+    fp_rate = fp_blocked / fp_total if fp_total else 0.0
+
     print("PART B — defend, then bypass your own defence\n")
-    print(f"  B1 coverage on known attacks : {blocked}/{len(waf.KNOWN_SQLI)} blocked")
-    print(f"  B1 genuine bypasses (axis 4) : {real_bypasses}/{len(waf.CANDIDATE_BYPASSES)}"
-          f"  (WAF-passed AND canary-leaking)")
-    for r in by_rows:
-        print(f"       {'BYPASS ' if r[4] else 'stopped'} {r[0]!r:<34} ({r[1]})")
-    print(f"  B1 false positives (axis 5)  : {len(fp_rows)}/{len(benign)} "
-          f"legit inputs blocked  (FP rate {fp_rate:.1%})")
-    for inp, rule in fp_rows:
-        print(f"       [{rule}] {inp!r}")
-    print(f"\n  B2 positive fix: canary leaks  vulnerable={vuln_leaks}/{len(all_payloads)}"
-          f"   parameterized={param_leaks}/{len(all_payloads)}")
-    print(f"  guarantee: parameterized sink leaked the canary {param_leaks} times "
-          f"for {len(all_payloads)} hostile inputs.")
-    print(f"\n  wrote results/waf_coverage.csv, waf_bypasses.csv, "
-          f"waf_false_positives.csv, positive_fix.csv")
-    return dict(blocked=blocked, known=len(waf.KNOWN_SQLI),
-                real_bypasses=real_bypasses, candidates=len(waf.CANDIDATE_BYPASSES),
-                fp=len(fp_rows), benign=len(benign), fp_rate=fp_rate,
-                vuln_leaks=vuln_leaks, param_leaks=param_leaks, total=len(all_payloads),
-                fp_rows=fp_rows, by_rows=by_rows)
+    print(f"  B1 axis 3  coverage  : {blocked}/{len(cov_rows)} Part-A payloads blocked")
+    print(f"  B1 axis 4  BYPASS    : {len(genuine)}/{len(by_rows)} candidates pass the WAF "
+          f"AND leak the canary")
+    for r in genuine:
+        print(f"       BYPASS {r['payload']!r:40} ({r['technique']})")
+    print(f"  B1 axis 5  FALSE POS : {fp_blocked}/{fp_total} benign blocked = {fp_rate:.1%}")
+    for field, (b, n_f) in per_field.items():
+        print(f"       {field:16} {b}/{n_f} blocked")
+    victim = next((r for r in fp_rows if r["blocked"]), None)
+    if victim:
+        print(f"       e.g. blocked legit {victim['field']} {victim['benign_input']!r} "
+              f"(rule: {victim['rule']})")
+    print(f"\n  B2 positive fix: canary leaks  vulnerable={vuln_leaks}/{n}  "
+          f"parameterized={fix_leaks}/{n}")
+    print(f"  B2 legitimate admin login still works under the fix: {legit_ok}")
+    print(f"  B2 guarantee: input is BOUND AS DATA; the SQL parse tree is fixed before "
+          f"any input is seen, so NO input can alter the query structure.")
+
+    summary = {
+        "defended_vuln": "SQLi @ do_login (POST /login)",
+        "b1_coverage": {"blocked": blocked, "total": len(cov_rows)},
+        "b1_genuine_bypasses": len(genuine),
+        "b1_bypass_candidates": len(by_rows),
+        "b1_false_positive_count": fp_blocked,
+        "b1_false_positive_total": fp_total,
+        "b1_false_positive_rate": round(fp_rate, 4),
+        "b1_false_positive_by_field": {k: list(v) for k, v in per_field.items()},
+        "b2_leaks_on_vulnerable": vuln_leaks,
+        "b2_leaks_on_parameterized": fix_leaks,
+        "b2_payloads_tested": n,
+        "b2_legit_login_ok": legit_ok,
+        "b2_guarantee": ("For ANY string value of user/pw, the parameterized query's "
+                         "structure is fixed at parse time, so no input can change which "
+                         "rows are selected — PROVIDED every code path that reaches this "
+                         "table uses bound parameters (one remaining string-built query "
+                         "would void it). The WAF cannot claim this: it enumerates known-"
+                         "bad strings, so any string it did not imagine (block-comment, "
+                         "GLOB, inequality) passes."),
+    }
+    (HERE / "results" / "defend_summary.json").write_text(json.dumps(summary, indent=2),
+                                                          encoding="utf-8")
+    ok = (len(genuine) >= 3 and fix_leaks == 0 and legit_ok and fp_blocked > 0)
+    print(f"\n  wrote results/*.csv + defend_summary.json — {'OK' if ok else 'CHECK'}")
+    return 0 if ok else 1
 
 
 if __name__ == "__main__":
-    main()
+    raise SystemExit(main())

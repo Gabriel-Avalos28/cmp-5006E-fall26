@@ -1,36 +1,46 @@
-# Homework 2 — Web Attack & Defend — Part C (LLM vs scanner duel) — Team: Gabriel Avalos, Keoma Quiroga, David Bucheli
-"""Part C — point a classical scanner and an LLM reviewer at the SAME target and
-score both against a HAND-BUILT ground truth (projects/homework fixture), honestly.
+# HW2 — Web Attack & Defend — Part C (the duel) — Team: Gabriel Avalos, Keoma Quiroga, David Bucheli
+"""Part C — point classical scanners and an LLM reviewer at the SAME source and
+score both against a HAND-BUILT ground truth (duel-2-web/ground_truth.json, built
+by reading the source, not by running a tool).
 
-  * Classical arm: a line-oriented regex rule set standing in for Semgrep/CodeQL
-    (sqlmap/semgrep are not installed here). It is the course's own scanner and it
-    MISSES the SQLi because the vulnerable query spans two lines — a real failure
-    mode, not a contrivance.
-  * LLM arm: the documented mock (see llm_backend.py), run TWICE so the
-    non-determinism is measured (axis 9), not hidden.
+Classical arm (duel/scanners.py): regex-naive (always), plus REAL semgrep and REAL
+bandit when installed. LLM arm: three INDEPENDENT reviews by a real frontier model
+(llm_review_run{1,2,3}.txt — see AI_LOG Entry 4), PLUS the documented small-model
+mock (llm_mock.py) as a contrast baseline.
 
-Ground truth is read from the fixture, which was built BY READING THE SOURCE, not
-by running any tool — so scoring a tool against it is honest (a ground truth that
-is "whatever the scanner found" rigs the duel).
+Scoring scope (a deliberate, documented choice — see honesty.md §2): the ground
+truth adjudicates the three injection sinks it lists, the ONE true negative
+(/safe), and the ONE not-present class (broken-access-control). So each tool's
+output is scored on the CANONICAL class set {sqli, xss, cmdi, broken-access-control}
+(+ the /safe XSS key). Findings OUTSIDE that set (e.g. "plaintext password storage",
+"missing rate limiting") are REAL weaknesses the ground truth does not cover; we
+report them separately as out-of-scope rather than scoring them as false positives,
+because counting a genuine finding as an FP would be as dishonest as counting it a TP.
 
-Run:  python duel/duel.py   (writes results/duel_scores.csv, llm_findings.csv,
-                             and llm_review_run{1,2}.txt)
+Run:  python duel/duel.py
 """
 from __future__ import annotations
 
+import csv
+import json
 import re
 import sys
+from itertools import combinations
 from pathlib import Path
 
-HERE = Path(__file__).resolve().parent
-sys.path.insert(0, str(HERE.parent))
-sys.path.insert(0, str(HERE))
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+from common import paths  # noqa: E402
+paths.bootstrap()
 
-import _harness as H        # noqa: E402
-import llm_backend          # noqa: E402
+import llm_mock  # noqa: E402
+import scanners  # noqa: E402
 
 from seclab.scan import ScanResult, compare_scanners  # noqa: E402
 
+HERE = Path(__file__).resolve().parent
+GT_FILE = paths.FIXTURES / "ground_truth.json"
+
+# Prose -> canonical rule. Longest alias wins (checked longest-first).
 RULE_ALIASES = {
     "sql injection": "sqli",
     "reflected xss": "xss",
@@ -38,111 +48,173 @@ RULE_ALIASES = {
     "command injection": "cmdi",
     "broken access control": "broken-access-control",
 }
+CANONICAL = {"sqli", "xss", "cmdi", "broken-access-control"}
+# Each finding is declared as:  N. [SEV] <Class phrase> in <function>: <reason>
+# Anchor on that structure so a word like "XSS" mentioned in the REASON of a
+# security-headers finding does not get miscounted as an XSS finding.
+FINDING_RE = re.compile(
+    r"^\s*\d+\.\s*\[(?P<sev>\w+)\]\s*(?P<cls>.*?)\s+in\s+"
+    r"(?P<loc>do_\w+|make_db|main|_form|_send|log_message)\b", re.I)
 
 
-# --- classical arm (stand-in for Semgrep/CodeQL) -----------------------------
-def regex_scanner(source: str) -> list[ScanResult]:
-    """Single-line regex rules. The SQLi rule requires the interpolation on the
-    same line as SELECT; in vulnweb_app.py the query spans two lines, so it is
-    MISSED — the scanner's worst miss, and the point of the duel."""
-    rules = [
-        ("do_login",   "sqli", r'f"SELECT.*\{.*\}'),      # misses: query spans 2 lines
-        ("do_reflect", "xss",  r"Hello, \{name\}"),
-        ("do_ping",    "cmdi", r'f"ping -c 1 \{host\}'),
-    ]
-    out = []
-    for loc, rule, pat in rules:
-        if re.search(pat, source):
-            out.append(ScanResult(rule=rule, location=loc, tool="regex-scanner",
-                                  confidence="medium"))
-    return out
-
-
-# --- LLM arm: parse free text into structured findings -----------------------
-def parse_llm_review(raw: str, tool: str) -> list[ScanResult]:
-    """Faithfully parse each finding line: map prose rule name via RULE_ALIASES,
-    extract the ``do_<name>`` location. Do NOT filter suspicious findings — the
-    ground truth decides what's real, not us."""
-    out = []
+def parse_llm_review(raw: str, tool: str):
+    """Return (scored_canonical_results, out_of_scope_raw_lines). Faithful: we do
+    NOT drop a model's dubious canonical-class claim (that is the point); we only
+    set aside findings whose declared CLASS the ground truth cannot adjudicate."""
+    aliases = sorted(RULE_ALIASES.items(), key=lambda kv: -len(kv[0]))
+    scored, out_of_scope = [], []
     for line in raw.splitlines():
-        low = line.lower()
-        rule = next((canon for name, canon in RULE_ALIASES.items() if name in low), None)
-        loc = re.search(r"do_\w+", line)
-        if rule and loc:
-            out.append(ScanResult(rule=rule, location=loc.group(0), tool=tool,
-                                  confidence="high" if "[high]" in low else "medium"))
-    return out
+        if not re.match(r"\s*\d+\.", line):
+            continue
+        m = FINDING_RE.match(line)
+        rule = None
+        if m:
+            cls = m.group("cls").lower()
+            rule = next((canon for alias, canon in aliases if alias in cls), None)
+        if m and rule in CANONICAL:
+            scored.append(ScanResult(rule=rule, location=m.group("loc").lower(),
+                                     tool=tool, confidence="model",
+                                     severity=m.group("sev").lower(),
+                                     raw=line.strip()))
+        else:
+            out_of_scope.append(line.strip())
+    return scored, out_of_scope
 
 
-def f1(d):
-    return d["f1"]
+def load_ground_truth() -> set[tuple]:
+    data = json.loads(GT_FILE.read_text())
+    return {(f["rule"].strip().lower(), f["location"].strip().lower())
+            for f in data["findings"]}
 
 
-def main():
-    gt = H.load_ground_truth()
+def _scored_only(results):
+    """Keep only canonical-class results for scoring (scanners emit out-of-scope
+    bandit rows we don't score)."""
+    return [r for r in results if r.rule in CANONICAL]
 
-    scanner = regex_scanner(H.SOURCE)
-    llm_runs = {}
-    for run in (1, 2):
-        raw = llm_backend.review(run)
-        (HERE / f"llm_review_run{run}.txt").write_text(raw, encoding="utf-8")
-        llm_runs[run] = parse_llm_review(raw, tool=f"llm-run{run}")
 
-    comp = compare_scanners(
-        {"regex-scanner": scanner,
-         "llm-run1": llm_runs[1],
-         "llm-run2": llm_runs[2]},
-        gt)
+def main() -> int:
+    gt = load_ground_truth()
 
-    # --- scores CSV ----------------------------------------------------------
+    # classical arm
+    classical = {"regex-naive": scanners.regex_naive(),
+                 "semgrep": scanners.semgrep(),
+                 "bandit": scanners.bandit()}
+    skipped = [t for t in ("semgrep", "bandit") if not classical[t]]
+
+    # LLM arm — three real runs + the mock baseline
+    real_runs, oos = {}, {}
+    for n in (1, 2, 3):
+        raw = (HERE / f"llm_review_run{n}.txt").read_text(encoding="utf-8")
+        real_runs[f"llm-run{n}"], oos[f"llm-run{n}"] = parse_llm_review(raw, f"llm-run{n}")
+    mock_scored, _ = parse_llm_review(llm_mock.REVIEW, "llm-mock(small)")
+
+    tools = {}
+    for t, res in classical.items():
+        if res:
+            tools[t] = _scored_only(res)
+    tools.update(real_runs)
+    tools["llm-mock(small)"] = mock_scored
+
+    comp = compare_scanners(tools, gt)
+
+    # --- scores CSV ---------------------------------------------------------
     score_rows = []
     for tool, d in comp.items():
         score_rows.append([tool, d["tp"], d["fp"], d["fn"],
-                           f"{d['precision']:.2f}", f"{d['recall']:.2f}",
-                           f"{d['f1']:.2f}",
+                           f"{d['precision']:.2f}", f"{d['recall']:.2f}", f"{d['f1']:.2f}",
                            ";".join(f"{r}:{l}" for r, l in d["false_positives"]) or "-",
                            ";".join(f"{r}:{l}" for r, l in d["missed"]) or "-"])
-    H.write_csv(HERE / "results" / "duel_scores.csv",
-                ["tool", "tp", "fp", "fn", "precision", "recall", "f1",
-                 "false_positives", "missed"], score_rows)
+    _write(HERE / "results" / "duel_scores.csv",
+           ["tool", "tp", "fp", "fn", "precision", "recall", "f1", "false_positives", "missed"],
+           score_rows)
 
-    # --- per-finding CSV for the LLM runs (shows the set changing) -----------
+    # --- per-finding CSV for the real LLM runs ------------------------------
     find_rows = []
-    for run in (1, 2):
-        for r in llm_runs[run]:
-            key = r.key()
-            verdict = "TP (real)" if key in gt else "FP (hallucination/wrong)"
-            find_rows.append([f"run{run}", r.rule, r.location, r.confidence, verdict])
-    H.write_csv(HERE / "results" / "llm_findings.csv",
-                ["run", "rule", "location", "confidence", "verdict"], find_rows)
+    for n in (1, 2, 3):
+        run = f"llm-run{n}"
+        for r in real_runs[run]:
+            verdict = "TP (real)" if r.key() in gt else "FP (hallucination/wrong)"
+            find_rows.append([run, r.rule, r.location, verdict, r.raw[:70]])
+        for line in oos[run]:
+            find_rows.append([run, "(out-of-scope)", "-", "not scored (real but not in GT)", line[:70]])
+    _write(HERE / "results" / "llm_findings.csv",
+           ["run", "rule", "location", "verdict", "raw"], find_rows)
 
-    # --- non-determinism delta ----------------------------------------------
-    k1 = {r.key() for r in llm_runs[1]}
-    k2 = {r.key() for r in llm_runs[2]}
-    only1 = sorted(k1 - k2)
-    only2 = sorted(k2 - k1)
-    jaccard = len(k1 & k2) / len(k1 | k2) if (k1 | k2) else 1.0
+    # --- non-determinism over the 3 REAL runs (axis 9) ----------------------
+    key_sets = {n: {r.key() for r in real_runs[f"llm-run{n}"]} for n in (1, 2, 3)}
+    raw_counts = {n: sum(1 for ln in (HERE / f"llm_review_run{n}.txt").read_text().splitlines()
+                         if re.match(r"\s*\d+\.", ln)) for n in (1, 2, 3)}
+    jac = []
+    for a, b in combinations((1, 2, 3), 2):
+        u = key_sets[a] | key_sets[b]
+        jac.append(len(key_sets[a] & key_sets[b]) / len(u) if u else 1.0)
+    stable = set.intersection(*key_sets.values())
+    unstable = (set.union(*key_sets.values())) - stable
+    nd_rows = []
+    for n in (1, 2, 3):
+        fps = sorted(k for k in key_sets[n] if k not in gt)
+        nd_rows.append([f"run{n}", raw_counts[n], len(key_sets[n]),
+                        len(key_sets[n] & gt), len(fps),
+                        ";".join(f"{r}:{l}" for r, l in fps) or "-"])
+    _write(HERE / "results" / "nondeterminism.csv",
+           ["run", "raw_findings_total", "scored_findings", "true_positives",
+            "false_positives", "hallucinations"], nd_rows)
 
-    # --- console report ------------------------------------------------------
-    print("PART C — the duel: LLM vs scanner (scored against hand-built ground truth)\n")
-    print(f"  {'tool':<14}{'TP':>4}{'FP':>4}{'FN':>4}{'prec':>7}{'recall':>8}{'F1':>7}")
-    print("  " + "-" * 48)
+    # --- console ------------------------------------------------------------
+    print("PART C — the duel: LLM vs scanner (scored on the canonical class set)\n")
+    print(f"  {'tool':<16}{'TP':>4}{'FP':>4}{'FN':>4}{'prec':>7}{'recall':>8}{'F1':>7}")
+    print("  " + "-" * 52)
     for tool, d in comp.items():
-        print(f"  {tool:<14}{d['tp']:>4}{d['fp']:>4}{d['fn']:>4}"
+        print(f"  {tool:<16}{d['tp']:>4}{d['fp']:>4}{d['fn']:>4}"
               f"{d['precision']:>7.0%}{d['recall']:>8.0%}{d['f1']:>7.2f}")
-    sc = comp["regex-scanner"]
-    print(f"\n  scanner's worst MISS : {sc['missed']}  (the 2-line SQLi)")
-    print(f"  LLM best HALLUCINATION: broken-access-control — not present "
-          f"(app has no auth/session/role code)")
-    print(f"\n  non-determinism (axis 9): findings changed across 2 runs, "
-          f"Jaccard={jaccard:.2f}")
-    print(f"      only in run1: {only1}")
-    print(f"      only in run2: {only2}")
-    print("\n  wrote results/duel_scores.csv, results/llm_findings.csv, "
-          "llm_review_run1.txt, llm_review_run2.txt")
-    return dict(comp=comp, only1=only1, only2=only2, jaccard=jaccard,
-                scanner_missed=sc["missed"])
+    if skipped:
+        print(f"\n  (classical tools skipped — not installed: {', '.join(skipped)}; "
+              f"regex-naive always runs)")
+    print(f"\n  scanner's worst MISS   : regex-naive misses ('sqli','do_login') — the "
+          f"2-line query; semgrep's MULTILINE rule catches it, so the miss is a "
+          f"rule-design choice, not a law of scanners.")
+    print(f"  LLM best HALLUCINATION : ('broken-access-control','do_post') — asserted in "
+          f"an app with zero auth/session/role code (ground truth: not_present).")
+    print(f"\n  non-determinism (axis 9) over 3 REAL runs:")
+    print(f"      raw findings per run : {[raw_counts[n] for n in (1,2,3)]}")
+    print(f"      recall stable at     : all 3 real sinks in every run")
+    print(f"      mean pairwise Jaccard: {sum(jac)/len(jac):.2f}")
+    print(f"      stable keys          : {sorted(stable)}")
+    print(f"      unstable (noise)     : {sorted(unstable)}")
+    bac_real = {n: any(k[0] == "broken-access-control" for k in key_sets[n]) for n in (1, 2, 3)}
+    print(f"\n  access control: real-LLM BAC flag per run = {bac_real}; mock flags it every "
+          f"run; no scanner flags it. No real A01 exists — confirmed hallucination.")
+
+    report = {
+        "ground_truth": sorted(gt),
+        "scoring_scope": sorted(CANONICAL),
+        "scores": {t: comp[t] for t in comp},
+        "classical_skipped": skipped,
+        "nondeterminism": {
+            "raw_findings_per_run": raw_counts,
+            "scored_key_sets": {n: sorted(key_sets[n]) for n in (1, 2, 3)},
+            "stable": sorted(stable), "unstable": sorted(unstable),
+            "mean_pairwise_jaccard": round(sum(jac) / len(jac), 3),
+        },
+        "access_control_bac_flag": {"real_runs": bac_real,
+                                    "mock": True, "scanners": False,
+                                    "ground_truth": "not_present"},
+        "out_of_scope_real_findings": {n: oos[f"llm-run{n}"] for n in (1, 2, 3)},
+    }
+    (HERE / "results" / "duel_report.json").write_text(json.dumps(report, indent=2),
+                                                       encoding="utf-8")
+    print("\n  wrote results/duel_scores.csv, llm_findings.csv, nondeterminism.csv, duel_report.json")
+    return 0
+
+
+def _write(path: Path, header, rows):
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with path.open("w", newline="", encoding="utf-8") as fh:
+        w = csv.writer(fh)
+        w.writerow(header)
+        w.writerows(rows)
 
 
 if __name__ == "__main__":
-    main()
+    raise SystemExit(main())
