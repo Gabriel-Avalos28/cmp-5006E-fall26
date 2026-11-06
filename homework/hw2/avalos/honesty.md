@@ -2,78 +2,95 @@
 
 **Team:** Gabriel Avalos · Keoma Quiroga · David Bucheli — Homework 2
 
-We address six points; the first four are the ones the assignment names.
+The rubric grades **evidence quality, not which side won**. Here are the honest
+weaknesses of our submission. The first four are the ones the assignment names.
 
 ### 1. Was the ground-truth set built independently of the tools we scored?
 
-Mostly yes, but with one honest caveat. The ground truth
-(`homework/hw2/duel-2-web/ground_truth.json`) was built by **reading
-`vulnweb_app.py`**, not by running any scanner — the three real sinks are visible
-in source and each carries a `# VULN` comment. Neither the regex scanner nor the
-LLM mock contributed a single entry. **Caveat:** we did *not* build it blind — we
-wrote the scanner and the mock *and* the ground truth, so we knew the scanner's
-single-line rule would miss the two-line SQLi before we scored it. We did not
-tune the ground truth to flatter either tool (the scanner still scores higher F1
-on run 1 than the LLM), but a genuinely independent grader would have built the
-truth set without having seen either tool. We flag this rather than hide it.
+Yes in the property that matters, with one caveat. We reused the instructor's
+`duel-2-web/ground_truth.json`, which was built by **reading `vulnweb_app.py`**, not
+by running any tool — so it is not biased toward our scanner or our LLM. We verified
+it ourselves against the live app with `verify_fixtures.py` (→ `FIXTURES SOUND.`)
+before scoring. **Caveat:** we wrote the `regex-naive` scanner *and* the semgrep
+rules, so we knew in advance that a single-line rule would miss the two-line SQLi.
+We did not tune the ground truth to flatter anything (semgrep still out-scores the
+naive scanner), but a fully independent grader would have built the truth set without
+having seen our tools. **Fixture note:** the instructor's `verify_fixtures.py`
+resolves its course-root path one level too shallow for this repo's layout and raises
+`ModuleNotFoundError: vulnweb_app` as shipped; it runs clean with
+`PYTHONPATH=labs/vuln-web/app python homework/hw2/duel-2-web/verify_fixtures.py`. We
+did **not** edit the instructor's file.
 
-### 2. Did we tune one side and leave the other on defaults (effort asymmetry)?
+### 2. The duel's scoring scope is a choice we made — and it cuts both ways.
 
-**Yes, and this is the biggest threat to the duel's fairness.** The LLM arm is a
-*mock*, not a live model we prompt-engineered. We spent real effort shaping the
-WAF rules and the four bypasses (Part B), but we did **not** iterate on an LLM
-prompt — we froze two canned reviews that reproduce the small-local-model
-behaviour observed in the week-6 studio (high recall + a BAC hallucination). So
-the duel measures *a plausible LLM*, not *the best LLM a careful analyst could
-coax*. A frontier model at temperature 0 with a good prompt would very likely drop
-the `do_reflect_safe` false positive and might suppress the BAC hallucination
-entirely — which would flip the precision story. Our numbers should be read as
-"this is how an off-the-shelf small model behaves," not "LLMs lose."
+The three real LLM runs reported 11–15 findings each, but the ground truth only
+adjudicates three injection sinks, one true negative (`/safe`) and one not-present
+class (BAC). We therefore score every tool on the **canonical class set**
+{sqli, xss, cmdi, broken-access-control} and report findings outside it (plaintext
+password storage, missing rate limiting, information disclosure in the error path,
+0.0.0.0 bind, no TLS, …) as *out-of-scope* rather than as false positives. **Why this
+could be unfair:** that decision is what makes the real LLM score so well (run 1 and 3
+are a perfect 1.00). Counting those extra findings as FPs would crush its precision —
+but that would be dishonest, because most of them are **genuine weaknesses**, not
+hallucinations. Counting them as TPs would be equally dishonest (they are not in the
+graded set). We chose "report, don't score," and we flag that a stricter grader who
+counts every out-of-scope finding as an FP would report the LLM's precision at roughly
+3/11–3/15, not 100%. Both framings are in the data (`duel_report.json` lists every
+out-of-scope line); we just do not hide which one we picked.
 
-### 3. Is the benign corpus realistic, or does it dodge our rules by luck?
+### 3. Did we tune one side and leave the other on defaults (effort asymmetry)?
 
-The benign corpus is the **provided** `benign_traffic.json` (26 inputs), not one
-we curated to make our WAF look good — and we did not get to choose it, which cuts
-both ways. It is realistic in that it contains attack-adjacent English
-("drop table tennis", "reserve the drop table") that a broad blocklist trips on,
-which is exactly why our FP rate is 7.7% and not 0%. But 26 inputs is tiny, and it
-is dominated by short search/login/ping strings; a real production corpus (long
-free-text comments, URLs, code snippets pasted into a form) would almost certainly
-push the false-positive rate **higher**, because our `--` and `DROP TABLE` rules
-are blunt. So 7.7% is a **floor**, not a representative production number.
+Partly, in two directions. **The WAF** we shaped deliberately: a *narrower* ruleset
+(only the exact Part-A literals) would have given ~0% FPs and looked "safe," which
+would have undersold the lesson, so we used realistic word-boundary keyword rules that
+actually trip on attack-adjacent English — i.e. we tuned the WAF until it looked
+*bad*, the opposite of the usual bias but still a bias. **The LLM** got *no* prompt
+engineering: each of the three runs is a single cold review with an identical generic
+prompt, no "also check access control" follow-up, no retry to improve precision. So
+the duel measures an off-the-shelf review, not the best an analyst could coax. A
+tuned prompt would likely suppress the one BAC hallucination entirely and push all
+three runs to a perfect score — which would make the duel *less* interesting, not
+more. Read our LLM numbers as "a strong model, cold," not "the ceiling."
 
 ### 4. Which Part-A finding are we least sure reproduces, and why?
 
-The **XSS** finding. Our oracle confirms a *sound necessary condition* — the
-injected `<img onerror=...>` markup survives **unescaped** in the response — but it
-does **not** prove script execution, because we have no browser/DOM in the
-harness. A payload that reflects unescaped is a strong signal, yet a real page
-might still neutralise it via Content-Security-Policy, a sanitiser further down, or
-a context where `<img onerror>` doesn't fire. SQLi (canary exfiltrated) and cmdi
-(the app reports the metacharacter reached the command) are closer to end-to-end
-proof; XSS is the one where "confirmed by our oracle" is furthest from "exploitable
-in a real browser."
+The **XSS** finding. Our oracle confirms a *sound necessary condition* — the injected
+`<svg onload=…>` / `<script>` markup survives **unescaped** in the response — but it
+does **not** prove script execution, because the harness has no browser/DOM. Unescaped
+reflection is a strong signal, but a real page might still neutralise it via a
+Content-Security-Policy, a downstream sanitiser, or an injection context where the
+handler never fires. SQLi (canary exfiltrated from the real sqlite3 engine) and cmdi
+(the sink reports the metacharacter reached the command string) are closer to
+end-to-end; XSS is where "confirmed by our oracle" is furthest from "exploitable in a
+real browser."
 
-### 5. The "Medium filter" in Part A is our own stand-in.
+### 5. The Medium filter (Part A) and the WAF (Part B1) are both ours.
 
-`vuln-web` has no difficulty levels, so we wrote `attack/medium.py` to model
-DVWA-Medium. We chose rules that we *knew* our planned bypasses would evade. That
-is honest as a demonstration of the bypass technique, but it is not the same as
-defeating a filter someone else hardened against us. The genuinely adversarial
-bypass work — against a blocklist, measured on both blades — is Part B, where the
-bypasses had to both pass the WAF *and* leak the canary on the real sink to count
-(1 of our first 4 candidates failed that bar and was replaced only after the sink
-disproved it).
+`vuln-web` has no difficulty levels, so `common/medium_filter.py` reproduces
+DVWA-Medium and `common/waf.py` is our own blocklist. We "bypass filters we wrote."
+Mitigation: the Medium filter is a faithful reproduction of documented DVWA-Medium
+code (case-sensitive `str_replace`, `;`/`&&` strip), each baseline payload confirms
+the filter **does** neutralise the canonical attack (0/3 behind it), and every Part-B
+bypass had to both pass the WAF **and** leak the real canary to count. It is an honest
+demonstration of the techniques, not the same as defeating a filter a third party
+hardened against us.
 
-### 6. Our cmdi "confirmation" is a simulation, not a real shell.
+### 6. Is the benign corpus realistic, or does it dodge our rules by luck?
 
-`do_ping` never calls `os.system`/`subprocess` — by design, so the lab is safe to
-run anywhere. It builds `ping -c 1 {host}` and reports `injection_detected` when a
-shell metacharacter appears. So our oracle proves the **untrusted string reached
-the command-construction sink**, which is the real bug, but it does **not** prove a
-second command actually executed (no process was spawned, nothing was exfiltrated
-or written). It also abstracts away OS divergence: our bypass uses `|`, but on a
-real `cmd.exe` the separators differ (`;` is not a separator there; `&`/`&&` are),
-and on POSIX `/bin/sh` the behaviour of `|` vs `;` vs backticks differs again. In a
-real target we would confirm with an out-of-band effect (e.g. a timing delay via
-`| ping -c 5 127.0.0.1`, or a DNS/file side-channel), not a self-reported flag.
+It is the **provided** `benign_traffic.json`, not one we curated. Its own `_comment`
+says it deliberately bundles attack-adjacent English, which is exactly why our FP rate
+is 28.6% and not 0%. But 21 inputs across two fields is tiny, and the number is
+**sensitive to the denominator** (login-only would be 0/9; search-only 6/12 = 50%). A
+real production corpus (long free-text comments, pasted code, URLs) would almost
+certainly push the FP rate **higher**, because `--`, `drop` and `\bor\b` are blunt. So
+28.6% is a floor for this corpus, not a production number.
+
+### 7. The cmdi "confirmation" is a simulation, not a real shell.
+
+`do_ping` never calls `os.system`/`subprocess` — by design, so the lab is safe to run
+anywhere. It builds `ping -c 1 {host}` and reports `injection_detected` when a shell
+metacharacter appears. Our oracle therefore proves the **untrusted string reached the
+command-construction sink** (the real bug), but not that a second command executed.
+It also abstracts away OS divergence: our bypasses use `|`, `&`, `$()`, but separators
+differ on `cmd.exe` vs POSIX `/bin/sh`. On a real target we would confirm with an
+out-of-band effect (a timing delay, a DNS/file side-channel), not a self-reported flag.

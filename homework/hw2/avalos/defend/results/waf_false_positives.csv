@@ -1,3 +1,22 @@
-benign_input_blocked,waf_rule_fired
-drop table tennis lessons for beginners,SQLi DROP TABLE
-reserve the drop table at the makerspace friday,SQLi DROP TABLE
+field,benign_input,blocked,rule
+login_username,alice,False,
+login_username,bob_smith,False,
+login_username,o'brien,False,
+login_username,d'angelo,False,
+login_username,renee,False,
+login_username,user.name+tag@example.com,False,
+login_username,María José,False,
+login_username,select_committee_chair,False,
+login_username,unionrep_delegate,False,
+search_or_name,wireless headphones under 50 dollars,False,
+search_or_name,i want to select the union option on the benefits form,True,union
+search_or_name,drop table tennis lessons for beginners,True,drop
+search_or_name,reserve the drop table at the makerspace friday,True,drop
+search_or_name,the OR gate and the AND gate in digital logic,True,boolean-or
+search_or_name,director of operations or equivalent role,True,boolean-or
+search_or_name,how do i update my shipping address,False,
+search_or_name,javascript tutorial for absolute beginners,False,
+search_or_name,my order number is 1=1-2024 please help,True,tautology-1eq1
+search_or_name,"quotes about resilience: ""don't give up""",False,
+search_or_name,screenwriter for the new script,False,
+search_or_name,Panic! at the Disco tickets,False,

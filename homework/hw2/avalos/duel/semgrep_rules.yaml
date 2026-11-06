@@ -1,0 +1,33 @@
+# HW2 Part C — our own semgrep rules (not the registry's), run for real against
+# labs/vuln-web/app/vulnweb_app.py. Two SQLi rules on purpose: a NAIVE single-line
+# one that misses the two-line query (the classic scanner failure mode), and a
+# MULTILINE one that catches it — proving the miss is a rule-design choice, not a
+# law of scanners. The cmdi rule also fires on a docstring line (a real FP).
+rules:
+  - id: sqli-singleline-fstring
+    languages: [python]
+    severity: ERROR
+    message: SQL verb and an f-string interpolation on ONE physical line (naive rule).
+    patterns:
+      - pattern-regex: '(?i)(select|insert|update|delete)\b[^\n]*\{[A-Za-z_]\w*\}'
+
+  - id: sqli-multiline-fstring
+    languages: [python]
+    severity: ERROR
+    message: SQL verb and an f-string interpolation reaching a query across lines.
+    patterns:
+      - pattern-regex: '(?s)(SELECT|INSERT|UPDATE|DELETE)\b.{0,120}?\{[A-Za-z_]\w*\}'
+
+  - id: reflected-xss-fstring
+    languages: [python]
+    severity: ERROR
+    message: HTML tag with an interpolation and no escape on the line.
+    patterns:
+      - pattern-regex: '(?i)<(h1|body|div|span|script|img|svg)\b[^<]*\{[A-Za-z_]\w*\}'
+
+  - id: cmdi-fstring-command
+    languages: [python]
+    severity: ERROR
+    message: command string built with a request-controlled interpolation.
+    patterns:
+      - pattern-regex: '(?i)(ping|curl|wget|/bin/|sh -c)\b[^"\n]*\{[A-Za-z_]\w*\}'

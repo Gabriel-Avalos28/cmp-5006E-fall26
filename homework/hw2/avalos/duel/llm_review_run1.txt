@@ -1,13 +1,11 @@
-I reviewed vulnweb_app.py and found the following vulnerabilities:
-
-1. [HIGH] SQL Injection in do_login: the query is built by f-string
-   interpolation of `user` and `pw`, so authentication can be bypassed and the
-   secret column leaked.
-2. [HIGH] Reflected XSS in do_reflect: the `name` parameter is written into the
-   HTML response with no output encoding.
-3. [HIGH] Command Injection in do_ping: the `host` value is concatenated into a
-   shell command string.
-4. [HIGH] Broken Access Control in do_login: there is no session or role check
-   protecting the admin record, so any user can read privileged data.
-5. [MEDIUM] Reflected XSS in do_reflect_safe: the `name` value is returned to the
-   user in the response and should be treated as untrusted.
+1. [CRITICAL] SQL Injection in do_login: `user` and `pw` are put into the SQL query with an f-string, with no parameterization. An input like `' OR '1'='1` bypasses authentication and returns every row, including the admin canary secret.
+2. [HIGH] Command Injection in do_ping: the untrusted `host` value is concatenated into the shell command string `ping -c 1 {host}` with no validation or allow-list. Execution is only simulated in this copy, but any real `os.system`/`shell=True` use would let `;`, `|`, `$()` and similar characters run arbitrary commands, so the flaw is in the code pattern itself.
+3. [HIGH] Reflected XSS in do_reflect: the `name` query parameter goes into the HTML response without any output encoding and is served as `text/html`, so script in the URL runs in the victim's browser.
+4. [MEDIUM] Information Disclosure in do_login: when a query fails, the response includes the raw SQLite error message and the full SQL query. This helps attackers build and refine injection payloads.
+5. [MEDIUM] Sensitive Data Exposure in do_login: a successful login returns the user's `secret` column straight in the JSON response instead of issuing a session token. Any successful login, including one won through injection, hands over stored secrets.
+6. [MEDIUM] Hardcoded Credentials in make_db: the admin and alice passwords (`s3cr3t`, `password`) and the canary secret are hardcoded in the source code, and the passwords are weak.
+7. [MEDIUM] Plaintext Password Storage in make_db: passwords are stored and compared in cleartext rather than as salted hashes (bcrypt, scrypt or argon2).
+8. [MEDIUM] Missing Rate Limiting in do_POST: the `/login` endpoint has no rate limiting, attempt limit or lockout, so brute-force and credential-stuffing attacks are not slowed.
+9. [LOW] Denial of Service (Unbounded Request Body) in _form: the app trusts the client's `Content-Length` and reads that many bytes into memory with no maximum size. A non-numeric header value also raises an unhandled exception.
+10. [LOW] Missing Security Headers in _send: responses set no Content-Security-Policy, X-Content-Type-Options or X-Frame-Options headers. This removes defense-in-depth against XSS and clickjacking.
+11. [LOW] Insecure Network Binding in main: the server listens on 0.0.0.0, which exposes this deliberately vulnerable app on every network interface instead of only localhost. It also runs over plain HTTP, so credentials travel unencrypted.

@@ -1,10 +1,14 @@
-Here are the security issues I identified in vulnweb_app.py:
-
-1. [HIGH] SQL Injection in do_login: user-controlled input is formatted directly
-   into the SQL string, allowing auth bypass.
-2. [HIGH] Reflected XSS in do_reflect: unescaped user input is reflected into the
-   HTML body.
-3. [HIGH] Command Injection in do_ping: the host parameter reaches a shell
-   command without sanitisation.
-4. [MEDIUM] Broken Access Control in do_ping: the endpoint performs no
-   authorization check before acting on the request.
+1. [CRITICAL] SQL Injection in do_login: The `user` and `pw` values from the request are put straight into the SQL query with an f-string instead of bound parameters. An input like `' OR '1'='1` bypasses authentication and returns every user's `secret`, including the admin flag.
+2. [HIGH] Reflected XSS in do_reflect: The `name` query parameter is placed into the HTML response (served as text/html) without escaping. An attacker-crafted URL can therefore run script in the victim's browser.
+3. [HIGH] Command Injection in do_ping: The untrusted `host` value is joined into the shell command `ping -c 1 {host}` with no validation or allow-list, so characters like `;`, `|` and `` ` `` let an attacker add extra commands. This copy only echoes the command instead of running it, but the sink is real and would be CRITICAL in any version that passes it to `os.system` or a shell.
+4. [MEDIUM] Information Disclosure in do_login: On a database error, the response includes both the raw SQLite error message and the full SQL query that was built. This shows the schema and query structure, which makes error-based SQL injection much easier.
+5. [MEDIUM] Sensitive Data Exposure in do_login: A successful login returns the user's `secret` column in the response body. Session-grade secrets should not go back to the client this way, and it turns any authentication bypass into immediate data theft.
+6. [HIGH] Hardcoded Credentials in make_db: The admin account (`admin`/`s3cr3t`), a second account (`alice`/`password`) and the `CANARY_SECRET` value are written into the source code. Anyone who can read the source has valid logins.
+7. [MEDIUM] Plaintext Password Storage in make_db: Passwords are stored and compared as plaintext in the `users` table, not as salted hashes (for example bcrypt or scrypt), so anyone who reads the database gets every password.
+8. [MEDIUM] Missing Rate Limiting in do_login: The `/login` endpoint has no rate limiting, attempt counter or lockout. Online brute-force and credential-stuffing attacks against the weak passwords are unrestricted.
+9. [MEDIUM] Denial of Service (Unbounded Request Body) in _form: The handler trusts the client's `Content-Length` and reads that many bytes with no upper limit. A huge or negative value (`read(-1)` reads until the connection closes) can use up memory or hold worker threads, and the threaded server has no limit on connections.
+10. [LOW] Missing Authentication / Broken Access Control in do_POST: Anyone can call `/ping` without logging in. The login also creates no session or token, so nothing protects any later actions.
+11. [LOW] Insecure Network Exposure in main: The server binds to `0.0.0.0` over plain HTTP, so this deliberately vulnerable app is reachable from every network interface and credentials travel unencrypted.
+12. [LOW] Missing Security Headers in _send: Responses set no `Content-Security-Policy`, `X-Content-Type-Options`, `X-Frame-Options` or similar headers. A CSP would reduce the impact of the XSS in item 2, and the missing frame protection allows clickjacking.
+13. [LOW] Insufficient Logging in log_message: `log_message` is overridden to do nothing, so no request logs are kept. Attacks such as SQL injection probing or brute-force attempts leave no audit trail.
+14. [LOW] Cross-Site Request Forgery in _form: If a POST body isn't valid JSON, `_form` falls back to parsing it as form-encoded data. An ordinary cross-origin HTML form with no CSRF token can therefore trigger `/login` and `/ping`.

@@ -1,0 +1,27 @@
+{
+  "defended_vuln": "SQLi @ do_login (POST /login)",
+  "b1_coverage": {
+    "blocked": 4,
+    "total": 4
+  },
+  "b1_genuine_bypasses": 5,
+  "b1_bypass_candidates": 5,
+  "b1_false_positive_count": 6,
+  "b1_false_positive_total": 21,
+  "b1_false_positive_rate": 0.2857,
+  "b1_false_positive_by_field": {
+    "login_username": [
+      0,
+      9
+    ],
+    "search_or_name": [
+      6,
+      12
+    ]
+  },
+  "b2_leaks_on_vulnerable": 9,
+  "b2_leaks_on_parameterized": 0,
+  "b2_payloads_tested": 9,
+  "b2_legit_login_ok": true,
+  "b2_guarantee": "For ANY string value of user/pw, the parameterized query's structure is fixed at parse time, so no input can change which rows are selected \u2014 PROVIDED every code path that reaches this table uses bound parameters (one remaining string-built query would void it). The WAF cannot claim this: it enumerates known-bad strings, so any string it did not imagine (block-comment, GLOB, inequality) passes."
+}

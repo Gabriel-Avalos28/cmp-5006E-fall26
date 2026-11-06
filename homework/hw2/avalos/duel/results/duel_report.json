@@ -1,0 +1,252 @@
+{
+  "ground_truth": [
+    [
+      "cmdi",
+      "do_ping"
+    ],
+    [
+      "sqli",
+      "do_login"
+    ],
+    [
+      "xss",
+      "do_reflect"
+    ]
+  ],
+  "scoring_scope": [
+    "broken-access-control",
+    "cmdi",
+    "sqli",
+    "xss"
+  ],
+  "scores": {
+    "regex-naive": {
+      "tp": 2,
+      "fp": 0,
+      "fn": 1,
+      "precision": 1.0,
+      "recall": 0.6666666666666666,
+      "f1": 0.8,
+      "false_positives": [],
+      "missed": [
+        [
+          "sqli",
+          "do_login"
+        ]
+      ]
+    },
+    "semgrep": {
+      "tp": 3,
+      "fp": 1,
+      "fn": 0,
+      "precision": 0.75,
+      "recall": 1.0,
+      "f1": 0.8571428571428571,
+      "false_positives": [
+        [
+          "cmdi",
+          "module"
+        ]
+      ],
+      "missed": []
+    },
+    "bandit": {
+      "tp": 1,
+      "fp": 0,
+      "fn": 2,
+      "precision": 1.0,
+      "recall": 0.3333333333333333,
+      "f1": 0.5,
+      "false_positives": [],
+      "missed": [
+        [
+          "cmdi",
+          "do_ping"
+        ],
+        [
+          "xss",
+          "do_reflect"
+        ]
+      ]
+    },
+    "llm-run1": {
+      "tp": 3,
+      "fp": 0,
+      "fn": 0,
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1": 1.0,
+      "false_positives": [],
+      "missed": []
+    },
+    "llm-run2": {
+      "tp": 3,
+      "fp": 1,
+      "fn": 0,
+      "precision": 0.75,
+      "recall": 1.0,
+      "f1": 0.8571428571428571,
+      "false_positives": [
+        [
+          "broken-access-control",
+          "do_post"
+        ]
+      ],
+      "missed": []
+    },
+    "llm-run3": {
+      "tp": 3,
+      "fp": 0,
+      "fn": 0,
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1": 1.0,
+      "false_positives": [],
+      "missed": []
+    },
+    "llm-mock(small)": {
+      "tp": 3,
+      "fp": 2,
+      "fn": 0,
+      "precision": 0.6,
+      "recall": 1.0,
+      "f1": 0.7499999999999999,
+      "false_positives": [
+        [
+          "broken-access-control",
+          "do_login"
+        ],
+        [
+          "xss",
+          "do_reflect_safe"
+        ]
+      ],
+      "missed": []
+    }
+  },
+  "classical_skipped": [],
+  "nondeterminism": {
+    "raw_findings_per_run": {
+      "1": 11,
+      "2": 14,
+      "3": 15
+    },
+    "scored_key_sets": {
+      "1": [
+        [
+          "cmdi",
+          "do_ping"
+        ],
+        [
+          "sqli",
+          "do_login"
+        ],
+        [
+          "xss",
+          "do_reflect"
+        ]
+      ],
+      "2": [
+        [
+          "broken-access-control",
+          "do_post"
+        ],
+        [
+          "cmdi",
+          "do_ping"
+        ],
+        [
+          "sqli",
+          "do_login"
+        ],
+        [
+          "xss",
+          "do_reflect"
+        ]
+      ],
+      "3": [
+        [
+          "cmdi",
+          "do_ping"
+        ],
+        [
+          "sqli",
+          "do_login"
+        ],
+        [
+          "xss",
+          "do_reflect"
+        ]
+      ]
+    },
+    "stable": [
+      [
+        "cmdi",
+        "do_ping"
+      ],
+      [
+        "sqli",
+        "do_login"
+      ],
+      [
+        "xss",
+        "do_reflect"
+      ]
+    ],
+    "unstable": [
+      [
+        "broken-access-control",
+        "do_post"
+      ]
+    ],
+    "mean_pairwise_jaccard": 0.833
+  },
+  "access_control_bac_flag": {
+    "real_runs": {
+      "1": false,
+      "2": true,
+      "3": false
+    },
+    "mock": true,
+    "scanners": false,
+    "ground_truth": "not_present"
+  },
+  "out_of_scope_real_findings": {
+    "1": [
+      "4. [MEDIUM] Information Disclosure in do_login: when a query fails, the response includes the raw SQLite error message and the full SQL query. This helps attackers build and refine injection payloads.",
+      "5. [MEDIUM] Sensitive Data Exposure in do_login: a successful login returns the user's `secret` column straight in the JSON response instead of issuing a session token. Any successful login, including one won through injection, hands over stored secrets.",
+      "6. [MEDIUM] Hardcoded Credentials in make_db: the admin and alice passwords (`s3cr3t`, `password`) and the canary secret are hardcoded in the source code, and the passwords are weak.",
+      "7. [MEDIUM] Plaintext Password Storage in make_db: passwords are stored and compared in cleartext rather than as salted hashes (bcrypt, scrypt or argon2).",
+      "8. [MEDIUM] Missing Rate Limiting in do_POST: the `/login` endpoint has no rate limiting, attempt limit or lockout, so brute-force and credential-stuffing attacks are not slowed.",
+      "9. [LOW] Denial of Service (Unbounded Request Body) in _form: the app trusts the client's `Content-Length` and reads that many bytes into memory with no maximum size. A non-numeric header value also raises an unhandled exception.",
+      "10. [LOW] Missing Security Headers in _send: responses set no Content-Security-Policy, X-Content-Type-Options or X-Frame-Options headers. This removes defense-in-depth against XSS and clickjacking.",
+      "11. [LOW] Insecure Network Binding in main: the server listens on 0.0.0.0, which exposes this deliberately vulnerable app on every network interface instead of only localhost. It also runs over plain HTTP, so credentials travel unencrypted."
+    ],
+    "2": [
+      "4. [MEDIUM] Information Disclosure in do_login: On a database error, the response includes both the raw SQLite error message and the full SQL query that was built. This shows the schema and query structure, which makes error-based SQL injection much easier.",
+      "5. [MEDIUM] Sensitive Data Exposure in do_login: A successful login returns the user's `secret` column in the response body. Session-grade secrets should not go back to the client this way, and it turns any authentication bypass into immediate data theft.",
+      "6. [HIGH] Hardcoded Credentials in make_db: The admin account (`admin`/`s3cr3t`), a second account (`alice`/`password`) and the `CANARY_SECRET` value are written into the source code. Anyone who can read the source has valid logins.",
+      "7. [MEDIUM] Plaintext Password Storage in make_db: Passwords are stored and compared as plaintext in the `users` table, not as salted hashes (for example bcrypt or scrypt), so anyone who reads the database gets every password.",
+      "8. [MEDIUM] Missing Rate Limiting in do_login: The `/login` endpoint has no rate limiting, attempt counter or lockout. Online brute-force and credential-stuffing attacks against the weak passwords are unrestricted.",
+      "9. [MEDIUM] Denial of Service (Unbounded Request Body) in _form: The handler trusts the client's `Content-Length` and reads that many bytes with no upper limit. A huge or negative value (`read(-1)` reads until the connection closes) can use up memory or hold worker threads, and the threaded server has no limit on connections.",
+      "11. [LOW] Insecure Network Exposure in main: The server binds to `0.0.0.0` over plain HTTP, so this deliberately vulnerable app is reachable from every network interface and credentials travel unencrypted.",
+      "12. [LOW] Missing Security Headers in _send: Responses set no `Content-Security-Policy`, `X-Content-Type-Options`, `X-Frame-Options` or similar headers. A CSP would reduce the impact of the XSS in item 2, and the missing frame protection allows clickjacking.",
+      "13. [LOW] Insufficient Logging in log_message: `log_message` is overridden to do nothing, so no request logs are kept. Attacks such as SQL injection probing or brute-force attempts leave no audit trail.",
+      "14. [LOW] Cross-Site Request Forgery in _form: If a POST body isn't valid JSON, `_form` falls back to parsing it as form-encoded data. An ordinary cross-origin HTML form with no CSRF token can therefore trigger `/login` and `/ping`."
+    ],
+    "3": [
+      "4. [MEDIUM] Information Disclosure in do_login: when the database raises an error, the response includes the raw error message and the full SQL query text. This helps an attacker tune SQL injection payloads and learn the schema.",
+      "5. [MEDIUM] Sensitive Data Exposure in do_login: a successful login sends back the `secret` column for every matching row instead of just a success flag or session token. Any login, legitimate or injected, leaks secret data.",
+      "6. [MEDIUM] Plaintext Password Storage in make_db: user passwords are stored and compared in cleartext instead of with a slow salted hash (bcrypt, scrypt or argon2). Any read of the database exposes every password.",
+      "7. [MEDIUM] Hardcoded Credentials in make_db: the account `admin/s3cr3t` and weak passwords such as `alice/password` are written into the source code, so anyone who reads the code can log in.",
+      "8. [LOW] Hardcoded Secret in make_db: the CANARY_SECRET value is a literal in the source and is seeded into the database, so it is exposed to anyone with the source.",
+      "9. [MEDIUM] Missing Rate Limiting in do_POST: the `/login` endpoint has no rate limiting, lockout or delay. Brute-forcing and credential stuffing go unchecked.",
+      "10. [LOW] Denial of Service / Unbounded Input in _form: the Content-Length header is trusted with no upper limit, so a client can make the server read a huge body into memory. A negative Content-Length makes `rfile.read(-1)` wait for EOF, which ties up a worker thread.",
+      "11. [LOW] Improper Input Validation in _form: a body that is not valid UTF-8 raises an exception the code does not catch. Valid JSON that is not an object (for example a list) makes `form.get` crash in do_POST. Either case can be used to cause server errors.",
+      "12. [LOW] Missing CSRF Protection in do_POST: the state-checking POST endpoints accept form-encoded bodies with no CSRF token or Origin check, so another site can submit cross-site requests to them.",
+      "13. [LOW] Missing Security Headers in _send: responses have no Content-Security-Policy, X-Content-Type-Options, X-Frame-Options or charset. This leaves out defense-in-depth against XSS, content sniffing and clickjacking.",
+      "14. [LOW] Cleartext Transmission in main: the server speaks plain HTTP with no TLS, so login credentials and leaked secrets cross the network unencrypted.",
+      "15. [LOW] Insecure Network Binding in main: the server listens on 0.0.0.0, which exposes this deliberately vulnerable app on every network interface instead of only localhost."
+    ]
+  }
+}
