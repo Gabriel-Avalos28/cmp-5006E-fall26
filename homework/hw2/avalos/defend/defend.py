@@ -37,9 +37,10 @@ def _leaks(send, text: str) -> bool:
 
 
 def coverage():
-    send = H.make_send("sqli", defense=WAFMOD.WAF)
+    # axis 3: measured on >= 20 distinct payloads (control-scorecard.md requirement),
+    # not just the four Part-A payloads the WAF was written against.
     rows, blocked = [], 0
-    for p in WAFMOD.KNOWN_SQLI:
+    for p in WAFMOD.COVERAGE_CORPUS:
         u, pw = H.split_sqli(p)
         rule = WAFMOD.first_rule_hit(u) or WAFMOD.first_rule_hit(pw)
         is_blocked = rule is not None
@@ -122,7 +123,8 @@ def main() -> int:
     fp_rate = fp_blocked / fp_total if fp_total else 0.0
 
     print("PART B — defend, then bypass your own defence\n")
-    print(f"  B1 axis 3  coverage  : {blocked}/{len(cov_rows)} Part-A payloads blocked")
+    print(f"  B1 axis 3  coverage  : {blocked}/{len(cov_rows)} distinct SQLi payloads blocked "
+          f"({blocked/len(cov_rows):.0%})")
     print(f"  B1 axis 4  BYPASS    : {len(genuine)}/{len(by_rows)} candidates pass the WAF "
           f"AND leak the canary")
     for r in genuine:

@@ -1,5 +1,23 @@
 payload,blocked,rule
-admin' or '1'='1,True,boolean-or
 admin' OR '1'='1,True,boolean-or
-admin'/**/Or/**/'1'='1,True,boolean-or
-admin'/**/-- -,True,inline-comment
+admin' OR 1=1--,True,boolean-or
+' OR 'x'='x,True,boolean-or
+admin'--,True,inline-comment
+admin' #,False,PASSED
+"' UNION SELECT NULL,NULL--",True,union
+"' UNION SELECT user,secret FROM users--",True,union
+1' ORDER BY 2--,True,inline-comment
+'; DROP TABLE users--,True,drop
+' OR 1=1 LIMIT 1--,True,boolean-or
+admin'/**/OR/**/'1'='1,True,boolean-or
+admin' || '1'='1,False,PASSED
+' AND 1=1--,True,inline-comment
+' AND SLEEP(5)--,True,inline-comment
+' OR SLEEP(5) #,True,boolean-or
+1 OR 1=1,True,boolean-or
+') OR ('1'='1,True,boolean-or
+' OR EXISTS(SELECT 1 FROM users)--,True,boolean-or
+admin' AND '1'='1,False,PASSED
+admin' AND pw LIKE '%,False,PASSED
+admin' AND pw GLOB '*,False,PASSED
+x' oR '1'='1,True,boolean-or

@@ -3,7 +3,7 @@
 **Team:** Gabriel Avalos · Keoma Quiroga · David Bucheli
 **Course:** CMP-5006E (Fall 2026) — HW2 (graded version of the week 6/7 studios)
 **Target:** `vuln-web` (`labs/vuln-web/app/vulnweb_app.py`), run **in-process on 127.0.0.1** — laptop-only.
-**Scope/ethics:** we attack only the app we run ourselves; synthetic data only. See [`../../resources/ethics-and-scope.md`](../../resources/ethics-and-scope.md).
+**Scope/ethics:** we attack only the app we run ourselves; synthetic data only. See [`../../../resources/ethics-and-scope.md`](../../../resources/ethics-and-scope.md).
 
 > **The bar we aimed for:** not "we blocked the attacks" but *"here is the attack
 > confirmed by an oracle, here is our defence, here is the bypass that still works,
@@ -25,7 +25,8 @@ No Docker, no Ollama, no API key required to reproduce the committed numbers. Th
 duel's classical arm uses **real `semgrep` and real `bandit`** when they are
 installed (`pip install semgrep bandit`); if they are absent the duel skips them and
 notes it — the always-runnable `regex-naive` scanner still runs. The LLM arm uses
-three committed real-model transcripts (see `AI_LOG.md` Entry 4).
+three committed cold-review transcripts — an assistant serving as `seclab.LLM`'s
+`manual` backend, not an API sampled 3× (see `AI_LOG.md` Entry 4 and Part C †).
 
 **Reproducibility notes.** Runs on CPython 3.9+ with the standard library only
 (plus `seclab`, already in the repo); all paths are resolved relative to the repo
@@ -107,9 +108,16 @@ one (`O'Brien`) — which is the FP trade-off axis 5 measures.
 
 | Blade | Result | Evidence |
 |---|---|---|
-| **Coverage** (axis 3) | **4/4** Part-A payloads blocked | [`waf_coverage.csv`](defend/results/waf_coverage.csv) |
+| **Coverage** (axis 3) | **17/22 = 77%** blocked on a 22-payload SQLi corpus (incl. all 4 Part-A payloads) | [`waf_coverage.csv`](defend/results/waf_coverage.csv) |
 | **Bypass** (axis 4) — *mandatory* | **5/5** candidates pass the WAF **and** leak the canary | [`waf_bypasses.csv`](defend/results/waf_bypasses.csv) |
 | **False positives** (axis 5) — *mandatory* | **6/21 = 28.6%** benign blocked | [`waf_false_positives.csv`](defend/results/waf_false_positives.csv) |
+
+Coverage is measured on **22 distinct payloads** (a cross-section of the SQLi class —
+tautologies, UNION, stacked DROP, order-by, blind/time-based), per the Control
+Scorecard's axis-3 rule of *"≥ 20 distinct payloads"* ([`control-scorecard.md`](../../../resources/control-scorecard.md)).
+The **5 it misses** are honest and telling: `admin' #` (alt comment), `admin' || '1'='1`
+(`||` operator), quoted `AND '1'='1'`, `LIKE '%` and `GLOB '*` — the exact shapes the
+axis-4 bypasses below exploit. A blocklist blocks only the shapes it imagined.
 
 The five bypasses all use the `"<user> :: <pw>"` trick: a `/*` block comment opened in
 the `user` field closes in the `pw` field, swallowing the `' AND pw = '` the app
@@ -145,6 +153,22 @@ this: it enumerates known-bad, so a sixth bypass always exists (we found five in
 minutes). **Headline:** the blocklist **raised cost** (bypassable 5/5 + 28.6% noise);
 parameterization **gave a guarantee** (0/9, for any input).
 
+### Control Scorecard — the WAF (negative model) vs. parameterization (positive model)
+
+The course rubric ([`control-scorecard.md`](../../../resources/control-scorecard.md)) asks every duel report to fill all
+eight axes. Scored on **evidence quality, not whether the control won**:
+
+| # | Axis | WAF blocklist (negative) | Parameterization (positive) | Evidence |
+|---|---|---|---|---|
+| 1 | **Threat model** | unauthenticated remote attacker, no creds, controls the login/search inputs | same adversary | Part A |
+| 2 | **Guarantee** | *none* — blocks only patterns the ruleset already names; no claim about the next payload | *for any input string, query structure is fixed at parse time* — **provided every path to the table binds parameters** | `defend_summary.json` |
+| 3 | **Coverage** | **17/22 (77%)** of a distinct SQLi corpus | n/a — not pattern-based; 0/9 hostile inputs alter the query | [`waf_coverage.csv`](defend/results/waf_coverage.csv), [`positive_fix.csv`](defend/results/positive_fix.csv) |
+| 4 | **Bypass** | **found: 5/5** (block-comment + GLOB/LIKE/inequality/quoted-tautology) leak the canary | none found: 0/9 payloads + bypasses leak | [`waf_bypasses.csv`](defend/results/waf_bypasses.csv) |
+| 5 | **FP cost** | **28.6%** of benign blocked (search_or_name 6/12; login_username 0/9) | **0%** — legit `admin`/`s3cr3t` login still works | [`waf_false_positives.csv`](defend/results/waf_false_positives.csv) |
+| 6 | **Op cost** | one regex pass per request (µs, stdlib `re`); tuning is unbounded — each bypass needs a new rule | one-line code change; no runtime infra, no tuning | `common/waf.py`, `common/positive_fix.py` |
+| 7 | **Observability** | `first_rule_hit` returns the rule that fired → loggable per request | the DB driver rejects nothing — nothing to alert on; failure would be a *missed* parameterization in code review | `common/waf.py` |
+| 8 | **Failure mode** | **fails open**: any input the rules don't name reaches the vulnerable sink | **fails closed by construction** at this sink; the only failure is a *different* code path that string-builds a query (out of scope here) | `honesty.md` §2 |
+
 ---
 
 ## Part C — The duel: LLM vs. scanner
@@ -160,10 +184,22 @@ reported separately rather than counted as false positives (see `honesty.md` §2
 | `regex-naive` (line-oriented) | 2 | 0 | 1 | **100%** | 67% | 0.80 |
 | `semgrep` (real, our rules) | 3 | 1 | 0 | 75% | **100%** | 0.86 |
 | `bandit` (real) | 1 | 0 | 2 | **100%** | 33% | 0.50 |
-| LLM run 1 (real model) | 3 | 0 | 0 | **100%** | **100%** | **1.00** |
-| LLM run 2 (real model) | 3 | 1 | 0 | 75% | **100%** | 0.86 |
-| LLM run 3 (real model) | 3 | 0 | 0 | **100%** | **100%** | **1.00** |
+| LLM run 1 (cold review †) | 3 | 0 | 0 | **100%** | **100%** | **1.00** |
+| LLM run 2 (cold review †) | 3 | 1 | 0 | 75% | **100%** | 0.86 |
+| LLM run 3 (cold review †) | 3 | 0 | 0 | **100%** | **100%** | **1.00** |
 | LLM mock (small-model baseline) | 3 | 2 | 0 | 60% | **100%** | 0.75 |
+
+> **† What the LLM arm actually is — read with care.** The grading sandbox has no
+> Ollama model and no API key, so `seclab.LLM`'s only working backend is `manual`
+> (paste prompts into a chat interface). **The assistant that helped build this
+> homework served as that backend**, producing three reviews of `vulnweb_app.py`,
+> each in a *separate isolated context that saw only the source* (no shared memory,
+> no sight of the ground truth). **This is not an API sampled 3× at temperature > 0**,
+> and the two 100%/100% runs are **not** evidence that "an LLM reviewer is reliable" —
+> a capable assistant doing a careful cold read of a 90-line file is close to best
+> case. We keep the small-model `llm_mock` row precisely as the honest contrast (it
+> hallucinates BAC *every* run and flags the fixed `/safe`). Full disclosure:
+> [`AI_LOG.md`](AI_LOG.md) Entry 4.
 
 Evidence: [`duel_scores.csv`](duel/results/duel_scores.csv), [`nondeterminism.csv`](duel/results/nondeterminism.csv), [`duel_report.json`](duel/results/duel_report.json).
 
@@ -177,13 +213,13 @@ Evidence: [`duel_scores.csv`](duel/results/duel_scores.csv), [`nondeterminism.cs
    asserted in an app with **zero** auth/session/role code (ground truth:
    `not_present`). The small-model mock makes the same BAC claim *every* run and also
    flags the fixed `/safe` endpoint.
-3. **Non-determinism (axis 9), 3 real runs:** recall is **stable at 100%** (all three
+3. **Non-determinism (axis 9), 3 cold-review runs:** recall is **stable at 100%** (all three
    real sinks every run); raw finding counts vary **11 / 14 / 15**; the only scored
    finding that changes is the **BAC hallucination**, present in **1 of 3** runs
    (mean pairwise Jaccard 0.83). What moves between runs is the *noise*, not the real
    findings — and a strong model's noise is smaller and less consistent than the small
    model's, which is itself the lesson about which model you trust.
-4. **Access control:** no real A01 exists; no scanner reports it; the real LLM invents
+4. **Access control:** no real A01 exists; no scanner reports it; the LLM cold-review invents
    it in 1/3 runs and the mock in every run — a hallucination, not a finding.
 
 ---

@@ -66,12 +66,45 @@ class _WAF:
 
 WAF = _WAF()
 
-# The Part-A SQLi payloads the WAF was written against (axis-3 coverage set).
+# The Part-A SQLi payloads the WAF was written against.
 KNOWN_SQLI = [
     "admin' or '1'='1",            # Part-A baseline
     "admin' OR '1'='1",            # Part-A case bypass (of the Medium filter)
     "admin'/**/Or/**/'1'='1",      # Part-A comment+case bypass
     "admin'/**/-- -",              # Part-A inline-comment bypass
+]
+
+# Axis-3 COVERAGE CORPUS — the Control Scorecard requires coverage to be measured
+# on >= 20 DISTINCT payloads (resources/control-scorecard.md, axis 3: "payloads
+# blocked / payloads attempted, on >= 20 distinct payloads"). This is a realistic
+# cross-section of the SQLi class (tautologies, UNION, stacked DROP, comment, blind,
+# order-by), NOT just the four it was written against. A blocklist can only block
+# the shapes it imagined, so the misses here are honest — and they foreshadow the
+# Part-B4 bypasses (quoted equality, GLOB, LIKE, inequality are all present and all
+# slip through). The 4 Part-A payloads above are a subset of this class.
+COVERAGE_CORPUS = [
+    "admin' OR '1'='1",                              # 1  quoted OR tautology
+    "admin' OR 1=1--",                               # 2  classic numeric tautology
+    "' OR 'x'='x",                                   # 3  bare quoted tautology
+    "admin'--",                                      # 4  comment-out password
+    "admin' #",                                      # 5  '#' comment (rules don't name it)
+    "' UNION SELECT NULL,NULL--",                    # 6  UNION probe
+    "' UNION SELECT user,secret FROM users--",       # 7  UNION data dump
+    "1' ORDER BY 2--",                               # 8  column enumeration
+    "'; DROP TABLE users--",                         # 9  stacked DROP
+    "' OR 1=1 LIMIT 1--",                            # 10 tautology + LIMIT
+    "admin'/**/OR/**/'1'='1",                        # 11 inline-comment around OR
+    "admin' || '1'='1",                              # 12 '||' OR-operator (no 'or' word)
+    "' AND 1=1--",                                   # 13 boolean AND probe (true)
+    "' AND SLEEP(5)--",                              # 14 time-based blind
+    "' OR SLEEP(5) #",                               # 15 time-based with OR
+    "1 OR 1=1",                                       # 16 numeric context tautology
+    "') OR ('1'='1",                                 # 17 parenthesis break-out
+    "' OR EXISTS(SELECT 1 FROM users)--",            # 18 subquery existence
+    "admin' AND '1'='1",                             # 19 quoted equality (no OR, no 1=1)
+    "admin' AND pw LIKE '%",                          # 20 LIKE wildcard tautology
+    "admin' AND pw GLOB '*",                          # 21 GLOB wildcard tautology
+    "x' oR '1'='1",                                  # 22 mixed-case OR
 ]
 
 # Candidate SAME-INTENT bypasses of THIS WAF (auth bypass / canary leak). The

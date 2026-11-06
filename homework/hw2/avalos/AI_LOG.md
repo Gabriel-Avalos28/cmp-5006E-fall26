@@ -4,7 +4,7 @@
 **Tool:** Claude (Opus), via Claude Code, as a coding/writing pair-programmer and —
 in Part C only — as the LLM reviewer under test.
 
-Per [`../../resources/ethics-and-scope.md`](../../resources/ethics-and-scope.md) and
+Per [`../../../resources/ethics-and-scope.md`](../../../resources/ethics-and-scope.md) and
 `resources/ai-policy.md`: AI use is allowed and must be disclosed; we are responsible
 for everything submitted. No real secrets, client data, or private lab details were
 pasted into any hosted model — all work is against the local `vuln-web` app and the
@@ -27,8 +27,9 @@ ourselves so we can defend the reasoning in the closed-book peer review.
 
 - All runnable code. **Every number in the README comes from `python run_all.py`
   against the real in-process app**, not from prose: Part A 3/3 per class (baselines
-  0/3, benign controls 0/3, `/safe` 0/3); B1 coverage 4/4 + 5/5 oracle-confirmed
-  bypasses + 6/21 (28.6%) FP; B2 vulnerable 9/9 vs parameterized 0/9 with a legit
+  0/3, benign controls 0/3, `/safe` 0/3); B1 coverage 17/22 (77%) on a distinct SQLi
+  corpus + 5/5 oracle-confirmed bypasses + 6/21 (28.6%) FP; B2 vulnerable 9/9 vs
+  parameterized 0/9 with a legit
   login still working; Part C the full scorecard and the 11/14/15 non-determinism.
 - The oracle-first discipline: a finding counts only when an oracle confirms a
   security effect; we applied the **same bar to our own bypasses** (WAF-passed **and**

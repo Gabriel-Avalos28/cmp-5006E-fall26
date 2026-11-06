@@ -1,8 +1,8 @@
 {
   "defended_vuln": "SQLi @ do_login (POST /login)",
   "b1_coverage": {
-    "blocked": 4,
-    "total": 4
+    "blocked": 17,
+    "total": 22
   },
   "b1_genuine_bypasses": 5,
   "b1_bypass_candidates": 5,
