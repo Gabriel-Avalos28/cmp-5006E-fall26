@@ -1,0 +1,722 @@
+[
+ {
+  "zip": "02139",
+  "yob": 1952,
+  "sex": "M",
+  "diagnosis": "diabetes"
+ },
+ {
+  "zip": "02101",
+  "yob": 1964,
+  "sex": "F",
+  "diagnosis": "diabetes"
+ },
+ {
+  "zip": "02139",
+  "yob": 1978,
+  "sex": "M",
+  "diagnosis": "diabetes"
+ },
+ {
+  "zip": "02139",
+  "yob": 1979,
+  "sex": "F",
+  "diagnosis": "flu"
+ },
+ {
+  "zip": "02102",
+  "yob": 1964,
+  "sex": "F",
+  "diagnosis": "none"
+ },
+ {
+  "zip": "02101",
+  "yob": 1966,
+  "sex": "F",
+  "diagnosis": "hiv"
+ },
+ {
+  "zip": "02139",
+  "yob": 1989,
+  "sex": "F",
+  "diagnosis": "diabetes"
+ },
+ {
+  "zip": "02139",
+  "yob": 2000,
+  "sex": "M",
+  "diagnosis": "diabetes"
+ },
+ {
+  "zip": "02139",
+  "yob": 1959,
+  "sex": "F",
+  "diagnosis": "flu"
+ },
+ {
+  "zip": "02101",
+  "yob": 1955,
+  "sex": "F",
+  "diagnosis": "diabetes"
+ },
+ {
+  "zip": "02139",
+  "yob": 1998,
+  "sex": "F",
+  "diagnosis": "cancer"
+ },
+ {
+  "zip": "02139",
+  "yob": 1970,
+  "sex": "F",
+  "diagnosis": "cancer"
+ },
+ {
+  "zip": "02102",
+  "yob": 1958,
+  "sex": "M",
+  "diagnosis": "cancer"
+ },
+ {
+  "zip": "02139",
+  "yob": 1979,
+  "sex": "M",
+  "diagnosis": "none"
+ },
+ {
+  "zip": "02139",
+  "yob": 1965,
+  "sex": "M",
+  "diagnosis": "none"
+ },
+ {
+  "zip": "02101",
+  "yob": 1999,
+  "sex": "M",
+  "diagnosis": "flu"
+ },
+ {
+  "zip": "02102",
+  "yob": 1961,
+  "sex": "M",
+  "diagnosis": "hiv"
+ },
+ {
+  "zip": "02102",
+  "yob": 1968,
+  "sex": "F",
+  "diagnosis": "hiv"
+ },
+ {
+  "zip": "02102",
+  "yob": 1989,
+  "sex": "M",
+  "diagnosis": "none"
+ },
+ {
+  "zip": "02102",
+  "yob": 1994,
+  "sex": "F",
+  "diagnosis": "cancer"
+ },
+ {
+  "zip": "02101",
+  "yob": 1985,
+  "sex": "M",
+  "diagnosis": "hiv"
+ },
+ {
+  "zip": "02102",
+  "yob": 1983,
+  "sex": "M",
+  "diagnosis": "cancer"
+ },
+ {
+  "zip": "02102",
+  "yob": 1975,
+  "sex": "M",
+  "diagnosis": "flu"
+ },
+ {
+  "zip": "02102",
+  "yob": 1975,
+  "sex": "F",
+  "diagnosis": "hiv"
+ },
+ {
+  "zip": "02102",
+  "yob": 1980,
+  "sex": "M",
+  "diagnosis": "hiv"
+ },
+ {
+  "zip": "02101",
+  "yob": 1963,
+  "sex": "F",
+  "diagnosis": "flu"
+ },
+ {
+  "zip": "02101",
+  "yob": 1999,
+  "sex": "F",
+  "diagnosis": "flu"
+ },
+ {
+  "zip": "02101",
+  "yob": 1972,
+  "sex": "M",
+  "diagnosis": "none"
+ },
+ {
+  "zip": "02139",
+  "yob": 1951,
+  "sex": "M",
+  "diagnosis": "none"
+ },
+ {
+  "zip": "02101",
+  "yob": 1993,
+  "sex": "M",
+  "diagnosis": "cancer"
+ },
+ {
+  "zip": "02102",
+  "yob": 2000,
+  "sex": "F",
+  "diagnosis": "none"
+ },
+ {
+  "zip": "02101",
+  "yob": 1959,
+  "sex": "F",
+  "diagnosis": "flu"
+ },
+ {
+  "zip": "02139",
+  "yob": 1991,
+  "sex": "F",
+  "diagnosis": "none"
+ },
+ {
+  "zip": "02139",
+  "yob": 1971,
+  "sex": "M",
+  "diagnosis": "flu"
+ },
+ {
+  "zip": "02101",
+  "yob": 1992,
+  "sex": "F",
+  "diagnosis": "hiv"
+ },
+ {
+  "zip": "02101",
+  "yob": 1975,
+  "sex": "F",
+  "diagnosis": "flu"
+ },
+ {
+  "zip": "02102",
+  "yob": 1963,
+  "sex": "F",
+  "diagnosis": "cancer"
+ },
+ {
+  "zip": "02139",
+  "yob": 1983,
+  "sex": "M",
+  "diagnosis": "flu"
+ },
+ {
+  "zip": "02101",
+  "yob": 1961,
+  "sex": "F",
+  "diagnosis": "none"
+ },
+ {
+  "zip": "02139",
+  "yob": 1959,
+  "sex": "F",
+  "diagnosis": "cancer"
+ },
+ {
+  "zip": "02102",
+  "yob": 1988,
+  "sex": "M",
+  "diagnosis": "cancer"
+ },
+ {
+  "zip": "02102",
+  "yob": 1952,
+  "sex": "M",
+  "diagnosis": "diabetes"
+ },
+ {
+  "zip": "02102",
+  "yob": 1968,
+  "sex": "M",
+  "diagnosis": "flu"
+ },
+ {
+  "zip": "02102",
+  "yob": 1992,
+  "sex": "M",
+  "diagnosis": "flu"
+ },
+ {
+  "zip": "02102",
+  "yob": 1967,
+  "sex": "F",
+  "diagnosis": "diabetes"
+ },
+ {
+  "zip": "02102",
+  "yob": 1969,
+  "sex": "M",
+  "diagnosis": "diabetes"
+ },
+ {
+  "zip": "02102",
+  "yob": 1953,
+  "sex": "M",
+  "diagnosis": "hiv"
+ },
+ {
+  "zip": "02101",
+  "yob": 1989,
+  "sex": "F",
+  "diagnosis": "diabetes"
+ },
+ {
+  "zip": "02102",
+  "yob": 1974,
+  "sex": "M",
+  "diagnosis": "none"
+ },
+ {
+  "zip": "02101",
+  "yob": 1950,
+  "sex": "M",
+  "diagnosis": "hiv"
+ },
+ {
+  "zip": "02139",
+  "yob": 1993,
+  "sex": "M",
+  "diagnosis": "cancer"
+ },
+ {
+  "zip": "02101",
+  "yob": 1981,
+  "sex": "F",
+  "diagnosis": "hiv"
+ },
+ {
+  "zip": "02101",
+  "yob": 1965,
+  "sex": "F",
+  "diagnosis": "diabetes"
+ },
+ {
+  "zip": "02102",
+  "yob": 1965,
+  "sex": "M",
+  "diagnosis": "hiv"
+ },
+ {
+  "zip": "02101",
+  "yob": 1985,
+  "sex": "M",
+  "diagnosis": "diabetes"
+ },
+ {
+  "zip": "02101",
+  "yob": 1954,
+  "sex": "F",
+  "diagnosis": "flu"
+ },
+ {
+  "zip": "02101",
+  "yob": 1984,
+  "sex": "M",
+  "diagnosis": "hiv"
+ },
+ {
+  "zip": "02139",
+  "yob": 1952,
+  "sex": "M",
+  "diagnosis": "diabetes"
+ },
+ {
+  "zip": "02101",
+  "yob": 1997,
+  "sex": "F",
+  "diagnosis": "hiv"
+ },
+ {
+  "zip": "02102",
+  "yob": 1992,
+  "sex": "M",
+  "diagnosis": "none"
+ },
+ {
+  "zip": "02102",
+  "yob": 1999,
+  "sex": "F",
+  "diagnosis": "diabetes"
+ },
+ {
+  "zip": "02139",
+  "yob": 1970,
+  "sex": "M",
+  "diagnosis": "none"
+ },
+ {
+  "zip": "02102",
+  "yob": 1991,
+  "sex": "F",
+  "diagnosis": "diabetes"
+ },
+ {
+  "zip": "02102",
+  "yob": 1967,
+  "sex": "M",
+  "diagnosis": "hiv"
+ },
+ {
+  "zip": "02102",
+  "yob": 1980,
+  "sex": "F",
+  "diagnosis": "cancer"
+ },
+ {
+  "zip": "02139",
+  "yob": 1982,
+  "sex": "M",
+  "diagnosis": "diabetes"
+ },
+ {
+  "zip": "02102",
+  "yob": 1972,
+  "sex": "M",
+  "diagnosis": "hiv"
+ },
+ {
+  "zip": "02102",
+  "yob": 1970,
+  "sex": "M",
+  "diagnosis": "none"
+ },
+ {
+  "zip": "02101",
+  "yob": 1972,
+  "sex": "M",
+  "diagnosis": "cancer"
+ },
+ {
+  "zip": "02139",
+  "yob": 1969,
+  "sex": "F",
+  "diagnosis": "hiv"
+ },
+ {
+  "zip": "02101",
+  "yob": 1991,
+  "sex": "M",
+  "diagnosis": "flu"
+ },
+ {
+  "zip": "02139",
+  "yob": 1997,
+  "sex": "F",
+  "diagnosis": "flu"
+ },
+ {
+  "zip": "02139",
+  "yob": 1962,
+  "sex": "M",
+  "diagnosis": "diabetes"
+ },
+ {
+  "zip": "02101",
+  "yob": 1951,
+  "sex": "F",
+  "diagnosis": "cancer"
+ },
+ {
+  "zip": "02139",
+  "yob": 1997,
+  "sex": "M",
+  "diagnosis": "diabetes"
+ },
+ {
+  "zip": "02139",
+  "yob": 1959,
+  "sex": "F",
+  "diagnosis": "cancer"
+ },
+ {
+  "zip": "02102",
+  "yob": 1984,
+  "sex": "M",
+  "diagnosis": "cancer"
+ },
+ {
+  "zip": "02102",
+  "yob": 1972,
+  "sex": "F",
+  "diagnosis": "diabetes"
+ },
+ {
+  "zip": "02102",
+  "yob": 1997,
+  "sex": "M",
+  "diagnosis": "flu"
+ },
+ {
+  "zip": "02139",
+  "yob": 1966,
+  "sex": "F",
+  "diagnosis": "hiv"
+ },
+ {
+  "zip": "02101",
+  "yob": 1998,
+  "sex": "F",
+  "diagnosis": "cancer"
+ },
+ {
+  "zip": "02139",
+  "yob": 1959,
+  "sex": "F",
+  "diagnosis": "flu"
+ },
+ {
+  "zip": "02102",
+  "yob": 1996,
+  "sex": "M",
+  "diagnosis": "hiv"
+ },
+ {
+  "zip": "02139",
+  "yob": 2000,
+  "sex": "F",
+  "diagnosis": "hiv"
+ },
+ {
+  "zip": "02101",
+  "yob": 1999,
+  "sex": "M",
+  "diagnosis": "cancer"
+ },
+ {
+  "zip": "02101",
+  "yob": 1999,
+  "sex": "M",
+  "diagnosis": "cancer"
+ },
+ {
+  "zip": "02102",
+  "yob": 1966,
+  "sex": "F",
+  "diagnosis": "diabetes"
+ },
+ {
+  "zip": "02101",
+  "yob": 1969,
+  "sex": "M",
+  "diagnosis": "none"
+ },
+ {
+  "zip": "02102",
+  "yob": 1952,
+  "sex": "M",
+  "diagnosis": "none"
+ },
+ {
+  "zip": "02139",
+  "yob": 1977,
+  "sex": "F",
+  "diagnosis": "hiv"
+ },
+ {
+  "zip": "02101",
+  "yob": 1986,
+  "sex": "M",
+  "diagnosis": "diabetes"
+ },
+ {
+  "zip": "02139",
+  "yob": 1996,
+  "sex": "M",
+  "diagnosis": "none"
+ },
+ {
+  "zip": "02102",
+  "yob": 1982,
+  "sex": "F",
+  "diagnosis": "flu"
+ },
+ {
+  "zip": "02102",
+  "yob": 1956,
+  "sex": "M",
+  "diagnosis": "diabetes"
+ },
+ {
+  "zip": "02101",
+  "yob": 1979,
+  "sex": "F",
+  "diagnosis": "diabetes"
+ },
+ {
+  "zip": "02139",
+  "yob": 1989,
+  "sex": "M",
+  "diagnosis": "hiv"
+ },
+ {
+  "zip": "02102",
+  "yob": 1996,
+  "sex": "F",
+  "diagnosis": "none"
+ },
+ {
+  "zip": "02101",
+  "yob": 1956,
+  "sex": "M",
+  "diagnosis": "diabetes"
+ },
+ {
+  "zip": "02139",
+  "yob": 1950,
+  "sex": "M",
+  "diagnosis": "diabetes"
+ },
+ {
+  "zip": "02101",
+  "yob": 1975,
+  "sex": "F",
+  "diagnosis": "cancer"
+ },
+ {
+  "zip": "02102",
+  "yob": 1990,
+  "sex": "F",
+  "diagnosis": "diabetes"
+ },
+ {
+  "zip": "02102",
+  "yob": 1955,
+  "sex": "M",
+  "diagnosis": "hiv"
+ },
+ {
+  "zip": "02101",
+  "yob": 1964,
+  "sex": "M",
+  "diagnosis": "cancer"
+ },
+ {
+  "zip": "02102",
+  "yob": 1952,
+  "sex": "M",
+  "diagnosis": "none"
+ },
+ {
+  "zip": "02102",
+  "yob": 1985,
+  "sex": "M",
+  "diagnosis": "none"
+ },
+ {
+  "zip": "02139",
+  "yob": 1968,
+  "sex": "F",
+  "diagnosis": "flu"
+ },
+ {
+  "zip": "02102",
+  "yob": 1989,
+  "sex": "F",
+  "diagnosis": "none"
+ },
+ {
+  "zip": "02101",
+  "yob": 1980,
+  "sex": "F",
+  "diagnosis": "cancer"
+ },
+ {
+  "zip": "02102",
+  "yob": 1987,
+  "sex": "M",
+  "diagnosis": "hiv"
+ },
+ {
+  "zip": "02101",
+  "yob": 1969,
+  "sex": "F",
+  "diagnosis": "flu"
+ },
+ {
+  "zip": "02102",
+  "yob": 1987,
+  "sex": "M",
+  "diagnosis": "diabetes"
+ },
+ {
+  "zip": "02139",
+  "yob": 1977,
+  "sex": "F",
+  "diagnosis": "diabetes"
+ },
+ {
+  "zip": "02139",
+  "yob": 1998,
+  "sex": "F",
+  "diagnosis": "none"
+ },
+ {
+  "zip": "02102",
+  "yob": 1963,
+  "sex": "F",
+  "diagnosis": "hiv"
+ },
+ {
+  "zip": "02102",
+  "yob": 1962,
+  "sex": "M",
+  "diagnosis": "flu"
+ },
+ {
+  "zip": "02102",
+  "yob": 1952,
+  "sex": "F",
+  "diagnosis": "flu"
+ },
+ {
+  "zip": "02102",
+  "yob": 1959,
+  "sex": "M",
+  "diagnosis": "flu"
+ },
+ {
+  "zip": "02102",
+  "yob": 1972,
+  "sex": "M",
+  "diagnosis": "diabetes"
+ },
+ {
+  "zip": "02101",
+  "yob": 1971,
+  "sex": "M",
+  "diagnosis": "none"
+ },
+ {
+  "zip": "02101",
+  "yob": 1968,
+  "sex": "F",
+  "diagnosis": "flu"
+ }
+]
