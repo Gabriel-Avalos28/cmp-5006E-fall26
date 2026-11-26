@@ -4,10 +4,11 @@
 **Course:** CMP-5006E (Fall 2026) — HW3, T1 `vuln-llm`
 
 **Tools:** Claude (Claude Sonnet 5.5) for entries 1–4 and Claude (Claude Opus 5.5) for
-entry 5, both used in agent sessions that read the course
+entries 5–6, both used in agent sessions that read the course
 repo, wrote and ran the code, and drafted the documents. They were used as a coding/writing
-pair-programmer, **not** as the system under test: the target's "model" is the course's
-deterministic mock, so there is no experiment on an LLM to report here.
+pair-programmer, **not** as the system under test: the target's "model" in the official
+results is the course's deterministic mock. Entry 6 adds one run against a real local model
+(Ollama `qwen2.5:1.5b`), reported separately in `results_ollama/`.
 
 Per `resources/ai-policy.md` and `resources/ethics-and-scope.md`: AI use is allowed and
 logged here, and we are responsible for everything we submit. No real secrets, client data
@@ -136,6 +137,38 @@ requirement-to-section table in the README, and the team names in every document
 README and `honesty.md` were checked against the regenerated CSV/JSON. A real-model run was
 attempted from the assistant's environment and was not possible (no access to the model
 download), so it remains open.
+
+**Did I understand it?**
+- Gabriel Avalos: _(fill in)_
+- Keoma Quiroga: _(fill in)_
+- David Bucheli: _(fill in)_
+
+## Entry 6 — Real-model run (Ollama qwen2.5:1.5b)
+
+**Tool:** Claude (Claude Opus 5.5), in an agent session on our own laptop
+
+**What I asked:** "Run an additional pass of HW3 against a real model through Ollama
+(`qwen2.5:1.5b`) without touching the official mock results: Part A, and B1 if there is
+time. Validate the run (backend must say `ollama`, look for `[backend error` fallbacks,
+benign controls must stay at 0/5), then update the README, `honesty.md` and this log with the
+real numbers, without inflating anything."
+
+**What I got:** Ollama installed and the model pulled; the course app started on
+`127.0.0.1:8000` with `/health` reporting `"backend": "ollama"`; Part A (4 min 57 s) and B1
+(21 min 32 s) written to `attack/results_ollama/` and `defend/results_ollama/`, with
+`results/` unchanged. Part A on the real model: 15 of 50 attack rows non-deterministic,
+`/chat` 41/100 trials (only 3 payloads at 5/5), R02 leaks 5/5 (0/5 on the mock), `/agent`
+and retrieval identical to the mock, 0/37 benign rows confirmed. During validation it found
+that the app silently falls back to the mock on a 60 s timeout, that this happened 5 times
+in B1 (0 in Part A, per the Ollama server log), and that two recorded "bypasses" were such
+fallbacks. It wrote `defend/validate_bypass_ollama.py` to re-run the bypass set checking
+every trial (9 fallbacks excluded): spaced/spelled bypass is real but ≤ 3/5, base64 never
+works on this model. It also reported one benign reply redacted at level 3 that it could
+not explain. It then updated the README (mock vs Ollama tables, B1 on a real model,
+reproduction), `honesty.md` §1 and this entry, and checked that `run_all.py` still passes
+17/17 on the mock.
+
+**What I did with it:** _(each of us: what we checked, kept or changed)_
 
 **Did I understand it?**
 - Gabriel Avalos: _(fill in)_

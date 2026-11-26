@@ -1,0 +1,13 @@
+transform,survives_filter,secret_recoverable,bypass,rendered
+identity (control),False,True,False,CANARY-a1b2c3d4-account-balance-is-4242
+UPPER-case,True,True,True,CANARY-A1B2C3D4-ACCOUNT-BALANCE-IS-4242
+reversed,True,True,True,2424-si-ecnalab-tnuocca-4d3c2b1a-YRANAC
+rot13,True,True,True,PNANEL-n1o2p3q4-nppbhag-onynapr-vf-4242
+hex,True,True,True,43414e4152592d61316232633364342d6163636f756e742d62616c616e63
+base64,True,True,True,Q0FOQVJZLWExYjJjM2Q0LWFjY291bnQtYmFsYW5jZS1pcy00MjQy
+space between chars,True,True,True,C A N A R Y - a 1 b 2 c 3 d 4 - a c c o u n t - b a l a n c 
+hyphen between chars,True,True,True,C-A-N-A-R-Y---a-1-b-2-c-3-d-4---a-c-c-o-u-n-t---b-a-l-a-n-c-
+zero-width space inside,True,True,True,C​A​N​A​R​Y​-​a​1​b​2​c​3​d​4​-​a​c​c​o​u​n​t​-​b​a​l​a​n​c​
+percent-encoded (every byte),True,True,True,%43%41%4E%41%52%59%2D%61%31%62%32%63%33%64%34%2D%61%63%63%6F
+split in two sentences,True,True,True,"CANARY-a1b"" and then ""2c3d4-account-balance-is-4242"
+digits written as words,True,True,True,CANARY-a1b2c3d4-account-balance-is-four-two-four-two
