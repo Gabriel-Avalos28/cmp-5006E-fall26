@@ -3,174 +3,195 @@
 **Team:** Gabriel Avalos · Keoma Quiroga · David Bucheli
 **Course:** CMP-5006E (Fall 2026) — HW3, T1 `vuln-llm`
 
-**Tools:** Claude (Claude Sonnet 5.5) for entries 1–4 and Claude (Claude Opus 5.5) for
-entries 5–6, both used in agent sessions that read the course
-repo, wrote and ran the code, and drafted the documents. They were used as a coding/writing
-pair-programmer, **not** as the system under test: the target's "model" in the official
-results is the course's deterministic mock. Entry 6 adds one run against a real local model
-(Ollama `qwen2.5:1.5b`), reported separately in `results_ollama/`.
+**AI tools:** Claude Sonnet 5.5 helped with entries 1–4. Claude Opus 5.5 helped with
+entries 5–6. We used Claude to clarify requirements, get feedback on our writing, and
+understand how to plan some tests. Our team made the decisions, updated the submission, and
+ran the checks. Claude was not the system under test: the official results are from the
+course's deterministic mock. Entry 6 reports a separate test that our team ran against
+Ollama `qwen2.5:1.5b`.
 
-Per `resources/ai-policy.md` and `resources/ethics-and-scope.md`: AI use is allowed and
-logged here, and we are responsible for everything we submit. No real secrets, client data
-or private lab details were pasted anywhere; all data is the lab's synthetic canary and
-corpus. Everything ran against the local `vuln-llm` app on loopback.
+AI use is allowed for this assignment and is recorded here. We are responsible for what we
+submit and for checking the results. We used only the lab's synthetic canary and sample
+data; no real secrets, client data, or private lab details were shared. All tests were run
+against the local `vuln-llm` app.
 
-> **To be completed by each team member before submitting.** Every "Did I understand it?"
-> field below is deliberately left for each of us to answer, in our own words, after reading
-> the code. The policy grades this field and the week 14 checkpoint is closed-book; we only
-> write "yes" where we can defend it, and "no" is allowed.
+> **Before submitting:** The "Did I understand it?" responses below are shared team
+> summaries. Before submitting, make sure each of us can explain the ideas in our own words
+> after reviewing the code.
 
 ---
 
-## Entry 1 — Reading the assignment and the repo
+## Entry 1 — Understanding the assignment
 
 **Tool:** Claude
 
-**What I asked:** "Complete HW3 as a student would, meeting every requirement; if the
-instructions are inconsistent, tell me instead of inventing anything."
+**What I asked:** I asked Claude to walk us through the HW3 requirements in plain language,
+identify conflicts or unclear instructions, and explain which parts the provided mock could
+and could not help us test. We used that guidance to decide the scope as a team rather than
+guessing what the assignment meant. As we worked through the requirements, I also asked
+Claude to review our interpretation and point out if a new question or inconsistency came up.
 
-**What I got:** A list of inconsistencies in the assignment text, which we then resolved
-with the team: (1) "Two apps" but only T1 is defined, the "peer app" is never specified;
-(2) "Pairs" while our hw2 team has three members; (3) "PR review: Submit a pull request"
-says nothing about a reviewer; (4) the mock is deterministic, so k/5 reliability cannot be
-measured; (5) `/agent` does not use the model or `/defense`, so B1.2 cannot apply to it;
-(6) the delimiter defense does nothing on the mock.
+**What I got:** Claude gave us a requirements summary and highlighted the main ambiguities:
+the assignment mentions two apps but defines only T1; and it asks for a pull request without naming a reviewer. It
+also explained that the deterministic mock cannot show how consistently an attack works
+across repeated trials, that `/agent` does not use the model or `/defense`, and that the
+delimiter defense has no effect on the mock.
 
-**What I did with it:** Decisions: T1 only; mock backend with reasoning about a real model
-(allowed by the assignment); keep the three-person team and flag it. Items 5 and 6 became
-results and honesty points instead of being hidden.
+**What we decided:** We focused on T1, and made the limits of
+the mock clear instead of presenting guesses as results. We reported the `/agent` and
+delimiter limitations honestly.
 
 **Did I understand it?**
-- Gabriel Avalos: _(fill in)_
-- Keoma Quiroga: _(fill in)_
-- David Bucheli: _(fill in)_
+Yes. We understand the main requirements and why some parts needed a team decision. We chose
+to focus on T1 and to report what the mock can and cannot show, rather than treating its
+results as proof of how a real model would behave.
 
-## Entry 2 — Harness and Part A
+## Entry 2 — Test harness and Part A
 
 **Tool:** Claude
 
-**What I asked:** "Build the harness and the four attacks with canary oracles, 5 trials
-each, with benign controls."
+**What I asked:** I asked Claude to guide us through planning the Part A test harness:
+how to organize the four attack groups, repeat each test five times, use canary checks to
+spot leaks, and include benign controls. We also asked for help understanding what each
+part of the harness was meant to check. As we developed the test plan, we asked Claude to
+review our progress and suggest changes if a case or control seemed to be missing.
 
-**What I got:** `common/` (in-process target, HTTP client, local attacker page server,
-oracles), a 20-payload `/chat` corpus, 5 indirect pages, 4 RAG questions, 5 agent requests,
-and `attack/attack.py`.
+**What I got:** Claude helped us organize the test cases for chat, indirect prompts, RAG,
+and the agent, and clarify how the harness and canary checks fit together. Our team used
+that guidance to build and run the tests.
 
-**What I did with it:** Kept the design; the benign controls (7 controls, 11 oracle rows, 0 confirmed) are
-what justify trusting the oracle. Payloads that contain none of the mock's trigger words
-(D17–D20, I05, A05) were kept on purpose to show that the mock's 0/5 says nothing about a
-real model. We split RAG into retrieval-without-authz vs canary-in-answer after checking
-that R01's leak is actually caused by the co-retrieved poisoned doc.
+**What we checked and kept:** We kept examples that do not contain the mock's trigger
+words (D17–D20, I05, and A05) to show why a zero result on this mock does not tell us how a
+real model would behave. We also kept the benign controls: 7 controls produced 11 oracle
+results checked by our leak detectors, with 0 confirmed leaks. For RAG, we checked that the
+leak in R01 came from a poisoned document retrieved alongside the private document.
 
 **Did I understand it?**
-- Gabriel Avalos: _(fill in)_
-- Keoma Quiroga: _(fill in)_
-- David Bucheli: _(fill in)_
+Yes. We understand that the harness runs the attacks in a repeatable way and that the
+canary checks help identify possible leaks. The benign controls give us a way to check
+whether those checks flag normal responses by mistake; the results still apply only to the
+mock we tested.
 
-## Entry 3 — Part B (defend, bypass, contain)
+## Entry 3 — Part B: defenses and containment
 
 **Tool:** Claude
 
-**What I asked:** "Run levels 1–3, find a bypass of the output filter, apply least
-privilege, report coverage vs containment, and try to break our own containment."
+**What I asked:** I asked Claude to explain how we could test the defense levels, try
+different ways of getting past the output filter, and check the agent's tool permissions.
+We also asked how to tell the difference between blocking an attack and limiting its
+impact if it gets through. As we worked on the defenses, we asked Claude to review our
+approach and help us think through corrections or follow-up tests.
 
-**What I got:** `defend/defend.py` with block rates, spaced/spelled/base64 bypasses through
-all three model-routed surfaces, a filter-logic demo, the allow-list sweep, and attempts to
-break the containment.
+**What I got:** Claude helped us understand how to test the output filter, the tools the
+agent could use, and possible ways around our containment rules. Our team prepared and ran
+the tests.
 
-**What I did with it:** Three corrections during the run, kept as evidence of checking:
-(a) the first "percent-encoded" transform left `-` and letters unescaped, so it was **not**
-a bypass — replaced with a per-byte encoding; (b) the script crashed when `send_email` ran
-without `lookup_balance` (`body` is `None` in the app) — handled, and noted that the agent
-still emails the attacker with `body: null`; (c) one benign task (F09) fails even with all
-tools allowed because the mock planner treats any "send ... email" as the exfil chain, so
-the policy's false-positive cost is measured against the wide-open baseline, not against 9/9.
-We also kept the two attempts that fail on the mock (X08 French, X09 reversed) and the one
-that succeeds against our own containment (`POST /policy` has no authentication).
+**What we checked and changed:** We caught that the first percent-encoding example still
+left some characters unchanged, so it was not a real bypass. We replaced it with a version
+that encodes each byte. We also fixed a test-script crash when `send_email` ran without a
+message body, and recorded that the app still sends the email with `body: null`.
+
+One benign task (F09) fails even when all tools are allowed: the mock treats any request to
+send an email as the exfiltration chain. We therefore compared the policy's false-positive
+cost with the wide-open baseline, not with an assumed perfect score. We kept two attempts
+that did not work against the mock (X08 in French and X09 reversed), and recorded that
+`POST /policy` can change the policy without authentication.
 
 **Did I understand it?**
-- Gabriel Avalos: _(fill in)_
-- Keoma Quiroga: _(fill in)_
-- David Bucheli: _(fill in)_
+Yes. We understand that the output filter and tool permissions address different risks, and
+neither one is a complete guarantee. The tests also showed why we need to report failures
+and limits, not just the cases the defenses caught.
 
-## Entry 4 — Documents
+## Entry 4 — Project documents and checks
 
 **Tool:** Claude
 
-**What I asked:** "Write README, the honesty section (≥ 3 points) and run_all.py."
+**What I asked:** I asked Claude to review the grammar and clarity of our `README.md` and
+`honesty.md`, point out explanations or claims that might confuse a reader, and suggest
+specific edits while leaving the final wording and decisions to our team. We also asked for
+feedback on updated drafts as we revised them, so we could make further improvements where
+needed.
 
-**What I got:** `README.md` with both Control Scorecards, `honesty.md`, `run_all.py` (14
-invariants, all passing on the mock).
+**What I got:** Claude gave us feedback on wording and clarity, especially where a claim
+needed to match what the mock actually showed. We used that feedback while revising the
+documents; Claude's role here was mainly to review and explain, not to write the final
+documents for us.
 
-**What I did with it:** Kept the structure. Wording that would overclaim was constrained to
-what the mock can show (e.g. "expected on a real model, untested"). We verified numbers
-against `results/*.csv` rather than trusting the prose.
-
-**Did I understand it?**
-- Gabriel Avalos: _(fill in)_
-- Keoma Quiroga: _(fill in)_
-- David Bucheli: _(fill in)_
-
-## Entry 5 — Review against the assignment and extension of the corpora
-
-**Tool:** Claude (Claude Opus 5.5)
-
-**What I asked:** "Review the professor's HW3 statement and every folder it references,
-run everything, and tell us what to change, delete or improve." Then: "Apply the
-recommendations, update the README, make sure every deliverable is complete and carries all
-team members' names."
-
-**What I got:** A review that re-ran the submission inside a fresh clone of the course repo
-(results byte-identical to the committed ones, also against the app started separately and
-on Python 3.9). It found: a broken link to `resources/ethics-and-scope.md`; a latent crash in
-`oracle_agent_exfil` when `send_email` runs with `body: null`; the wording "empty body" (the
-app sends `null`); the benign-control count; only 5 attack payloads on `/agent` and 5/9
-benign requests, below the scorecard's ≥ 20; no canary excerpt in the README; and no
-private-doc-only RAG case. It then implemented the fixes: 20 `/agent` attacks (A06–A20,
-including four paraphrases the mock planner does not parse), 21 benign requests for the
-filter, 20 legitimate agent tasks, R05 (private doc retrieved alone), a headline that counts
-only attempts that actually fired, `HW3_RESULTS_TAG` so a real-model run does not overwrite
-the mock results, 3 new invariants in `run_all.py` (17 total), evidence excerpts and a
-requirement-to-section table in the README, and the team names in every document and script.
-
-**What I did with it:** _(each of us: what we checked, kept or changed)_. The numbers in the
-README and `honesty.md` were checked against the regenerated CSV/JSON. A real-model run was
-attempted from the assistant's environment and was not possible (no access to the model
-download), so it remains open.
+**What we checked:** Our team checked that the claims stayed within what the mock can show
+and compared the README numbers with the results files. We also ran `run_all.py` ourselves:
+all 14 checks passed on the mock.
 
 **Did I understand it?**
-- Gabriel Avalos: _(fill in)_
-- Keoma Quiroga: _(fill in)_
-- David Bucheli: _(fill in)_
+Yes. We understand that the README should explain our results clearly without claiming more
+than the tests can show. We checked the numbers against the result files ourselves, and we
+know that passing checks on the mock does not prove that a real model is safe.
 
-## Entry 6 — Real-model run (Ollama qwen2.5:1.5b)
+## Entry 5 — Reviewing the requirements and adding tests
 
-**Tool:** Claude (Claude Opus 5.5), in an agent session on our own laptop
+**Tool:** Claude Opus 5.5
 
-**What I asked:** "Run an additional pass of HW3 against a real model through Ollama
-(`qwen2.5:1.5b`) without touching the official mock results: Part A, and B1 if there is
-time. Validate the run (backend must say `ollama`, look for `[backend error` fallbacks,
-benign controls must stay at 0/5), then update the README, `honesty.md` and this log with the
-real numbers, without inflating anything."
+**What I asked:** I asked Claude to help us compare each HW3 requirement with the files and
+tests we had prepared, explain any gaps it noticed, and suggest what our team should check
+or improve before submitting. As we worked through those changes, we asked Claude to look
+over our progress and flag any remaining gaps or useful follow-up checks.
 
-**What I got:** Ollama installed and the model pulled; the course app started on
-`127.0.0.1:8000` with `/health` reporting `"backend": "ollama"`; Part A (4 min 57 s) and B1
-(21 min 32 s) written to `attack/results_ollama/` and `defend/results_ollama/`, with
-`results/` unchanged. Part A on the real model: 15 of 50 attack rows non-deterministic,
-`/chat` 41/100 trials (only 3 payloads at 5/5), R02 leaks 5/5 (0/5 on the mock), `/agent`
-and retrieval identical to the mock, 0/37 benign rows confirmed. During validation it found
-that the app silently falls back to the mock on a 60 s timeout, that this happened 5 times
-in B1 (0 in Part A, per the Ollama server log), and that two recorded "bypasses" were such
-fallbacks. It wrote `defend/validate_bypass_ollama.py` to re-run the bypass set checking
-every trial (9 fallbacks excluded): spaced/spelled bypass is real but ≤ 3/5, base64 never
-works on this model. It also reported one benign reply redacted at level 3 that it could
-not explain. It then updated the README (mock vs Ollama tables, B1 on a real model,
-reproduction), `honesty.md` §1 and this entry, and checked that `run_all.py` still passes
-17/17 on the mock.
+**What I got:** Claude pointed out items for us to review, including a broken link, a test
+that could fail when an email body was `null`, and areas where we needed more test cases or
+clearer evidence in the README. It also explained why the wording should say `null` rather
+than "empty."
 
-**What I did with it:** _(each of us: what we checked, kept or changed)_
+The review found a broken link, a test that could crash when an email body was `null`, and
+some missing test coverage: too few `/agent` attacks and benign requests, no example of a
+private RAG document retrieved on its own, and no canary excerpt in the README. It also
+flagged wording that called a `null` body "empty."
+
+**What we checked and changed:** Our team added 20 `/agent` attack cases, 21 filter benign
+requests, 20 legitimate agent tasks, and R05, which tests retrieval of the private document
+on its own. We also updated the results summary, added a results tag to keep Ollama output
+separate from the mock, and improved the README with evidence examples and a table linking
+requirements to sections. We added three checks to `run_all.py` (17 total), then ran the
+checks ourselves and compared the updated README and honesty section with the results files.
 
 **Did I understand it?**
-- Gabriel Avalos: _(fill in)_
-- Keoma Quiroga: _(fill in)_
-- David Bucheli: _(fill in)_
+Yes. We understand why we added the missing test cases and clearer evidence, and we checked
+the results ourselves rather than relying only on Claude's review. Passing those checks
+confirms the mock results, but it does not tell us how every real model would behave.
+
+## Entry 6 — Separate test with Ollama
+
+**Tool:** Claude Opus 5.5, in an agent session on our own laptop
+
+**What I asked:** I asked Claude to guide us through a separate Ollama test, explain how
+our team could confirm the app was using Ollama rather than silently falling back to the
+mock, and show us how to keep the new results separate from the official ones. We also
+asked for help understanding how to report the findings and their limitations. As we ran
+the test and reviewed its results, we asked Claude to suggest additional checks for
+timeouts, fallbacks, or unexpected responses.
+
+**What I got:** Claude explained the setup and suggested checks, including confirming the
+backend and looking for timeout fallbacks. Our team installed Ollama and the model, started
+the app, ran Part A and B1, checked the results, and saved them in
+`attack/results_ollama/` and `defend/results_ollama/`. We left the official `results/`
+folder unchanged; Claude did not run this test.
+
+**What the separate run showed:** The app reported the Ollama backend. In Part A, 15 of 50
+attack rows had varying results. Chat attacks succeeded in 41 of 100 trials, and only
+three payloads succeeded in all five trials. R02 leaked the canary in 5/5 trials; it did
+not leak on the mock. The `/agent` and retrieval results matched the mock, and none of the
+37 benign rows were confirmed.
+
+Our team also found that the app can silently fall back to the mock after a 60-second
+timeout. This happened five times in B1 and not in Part A, according to the Ollama server
+log. Two results first recorded as bypasses were actually fallbacks. We ran a follow-up
+check that excluded nine fallback trials: the spaced and spelled-out bypass worked, but no
+more than 3/5 times; the base64 bypass did not work on this model. One benign reply was
+redacted at defense level 3, and we could not explain why.
+
+**What we checked:** We kept the Ollama results separate from the official mock results,
+updated the README and `honesty.md` to describe the run and its limits, and confirmed that
+`run_all.py` still passes all 17 checks on the mock.
+
+**Did I understand it?**
+Yes. We understand that the Ollama run is separate from the official mock results and why
+we had to check for timeouts that silently switch back to the mock. Those checks matter:
+without them, we could mistake a fallback result for a real-model result.

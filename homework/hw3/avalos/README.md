@@ -494,7 +494,9 @@ guarantee and the attacker/defender asymmetry.
 
 ## AI use
 
-See [`AI_LOG.md`](AI_LOG.md). Claude wrote the code and the first draft of these documents in
-agent sessions, a second session reviewed the submission against the assignment and
-extended the corpora, and a third ran Part A and B1 against a real local model (entry 6). `run_all.py` re-checks the headline invariants on every run, and every
-figure in this README was compared against the committed CSV/JSON.
+See [`AI_LOG.md`](AI_LOG.md). We used Claude to clarify requirements and test design, review
+the README and `honesty.md`, and suggest improvements as we worked. For the Ollama run,
+Claude explained the setup and validation steps; our team installed the model, ran Part A
+and B1, checked for fallbacks, and saved the results separately from the official mock
+results. Our team also ran `run_all.py` and compared the figures in this README with the
+results files.
