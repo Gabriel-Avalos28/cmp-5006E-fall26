@@ -1,0 +1,17 @@
+defense_level,surface,payloads,trials,attack_successes,block_rate,payloads_working_at_L0,payloads_fully_blocked,backend
+0,/chat,20,100,80,0.0,16,0,mock
+0,/summarize,5,25,20,0.0,4,0,mock
+0,/rag,5,25,20,0.0,4,0,mock
+0,/agent,20,100,80,0.0,16,0,mock
+1,/chat,20,100,80,0.0,16,0,mock
+1,/summarize,5,25,20,0.0,4,0,mock
+1,/rag,5,25,20,0.0,4,0,mock
+1,/agent,20,100,80,0.0,16,0,mock
+2,/chat,20,100,0,1.0,16,16,mock
+2,/summarize,5,25,0,1.0,4,4,mock
+2,/rag,5,25,0,1.0,4,4,mock
+2,/agent,20,100,80,0.0,16,0,mock
+3,/chat,20,100,0,1.0,16,16,mock
+3,/summarize,5,25,0,1.0,4,4,mock
+3,/rag,5,25,0,1.0,4,4,mock
+3,/agent,20,100,80,0.0,16,0,mock
